@@ -1,66 +1,123 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState } from "react";
+
 
 export default function Home() {
+  const [task, setTask] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [imageData, setImageData] = useState(null);
+  const [grade, setGrade] = useState("4");
+const [subject, setSubject] = useState("Mathe");
+const [mode, setMode] = useState("explain"); // "extract" oder "explain"
+
+  async function explainTask() {
+    setLoading(true);
+    setAnswer("");
+
+    try {
+      const res = await fetch("/api/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+  grade: grade,
+  subject: subject,
+  task: task,
+  imageData: imageData,
+  mode: mode,
+}),
+
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAnswer("FEHLER: " + (data?.error || "Unbekannt"));
+      } else {
+        setAnswer(data?.answer || "Keine Antwort im Response.");
+      }
+    } catch (e) {
+      setAnswer("FEHLER: " + (e?.message || "Unbekannt"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main style={{ padding: 40, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
+      <h1>Hausaufgaben Hilfe</h1>
+      <div style={{ marginTop: 10 }}>
+  <label>Klasse: </label>
+  <select value={grade} onChange={(e) => setGrade(e.target.value)}>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+  </select>
+
+  <span style={{ marginLeft: 20 }}>Fach: </span>
+  <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+    <option value="Mathe">Mathe</option>
+    <option value="Deutsch">Deutsch</option>
+    <option value="Englisch">Englisch</option>
+  </select>
+</div>
+
+      <p>Bild hochladen (optional):</p>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = () => setImageData(reader.result);
+          reader.readAsDataURL(file);
+        }}
+      />
+
+      <p style={{ marginTop: 16 }}>Aufgabe (Text, optional):</p>
+      <textarea
+        placeholder="Schreibe deine Aufgabe hier rein (optional)..."
+        value={task}
+        onChange={(e) => setTask(e.target.value)}
+        style={{ width: "100%", height: 120 }}
+      />
+
+      <div style={{ marginTop: 12 }}>
+  <button onClick={() => { setMode("extract"); explainTask(); }} disabled={loading} style={{ marginLeft: 10 }}>
+  Aufgaben erkennen
+</button>
+  <button
+  onClick={() => {
+    setTask("Bitte NUR die Aufgaben aus dem Bild extrahieren und nummerieren. Keine Erklärungen.");
+    explainTask();
+  }}
+  disabled={loading}
+  style={{ marginLeft: 10 }}
+>
+  Aufgaben erkennen
+</button>
+
+  <button
+    onClick={() => {
+      setTask("Bitte prüfe meine Lösung und erkläre Fehler:\n\n" + task);
+      explainTask();
+    }}
+    disabled={loading}
+    style={{ marginLeft: 10 }}
+  >
+    Lösung prüfen
+  </button>
+</div>
+
+      {answer && (
+        <div style={{ marginTop: 20, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+          <h3>Antwort:</h3>
+          <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer}</pre>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
