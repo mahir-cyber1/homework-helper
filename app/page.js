@@ -73,8 +73,27 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
           if (!file) return;
 
           const reader = new FileReader();
-          reader.onload = () => setImageData(reader.result);
-          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    const maxWidth = 1200;
+    const scale = Math.min(1, maxWidth / img.width);
+
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const compressed = canvas.toDataURL("image/jpeg", 0.8);
+    setImageData(compressed);
+  };
+
+  img.src = event.target.result;
+};
+
+reader.readAsDataURL(file);
         }}
       />
 
@@ -87,8 +106,12 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
       />
 
       <div style={{ marginTop: 12 }}>
-  <button onClick={() => { setMode("extract"); explainTask(); }} disabled={loading} style={{ marginLeft: 10 }}>
-  Aufgaben erkennen
+ <button
+onClick={() => { setMode("extract"); explainTask(); }}
+disabled={loading}
+style={{ padding: "14px 18px", fontSize: "18px", borderRadius: "10px" }}
+>
+Aufgaben erkennen
 </button>
   
 
@@ -98,7 +121,7 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
       explainTask();
     }}
     disabled={loading}
-    style={{ marginLeft: 10 }}
+    style={{ marginLeft: 10, padding: "14px 18px", fontSize: "18px", borderRadius: "10px" }}
   >
     Lösung prüfen
   </button>
