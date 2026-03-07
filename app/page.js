@@ -67,6 +67,7 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
       <input
         type="file"
         accept="image/*"
+        capture="enviroment"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
@@ -89,16 +90,7 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
   <button onClick={() => { setMode("extract"); explainTask(); }} disabled={loading} style={{ marginLeft: 10 }}>
   Aufgaben erkennen
 </button>
-  <button
-  onClick={() => {
-    setTask("Bitte NUR die Aufgaben aus dem Bild extrahieren und nummerieren. Keine Erklärungen.");
-    explainTask();
-  }}
-  disabled={loading}
-  style={{ marginLeft: 10 }}
->
-  Aufgaben erkennen
-</button>
+  
 
   <button
     onClick={() => {
