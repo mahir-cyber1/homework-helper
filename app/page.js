@@ -63,50 +63,54 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
   </select>
 </div>
 
-      <p>Bild hochladen (optional):</p>
-      <input
-        type="file"
-        accept="image/*"
-        capture="enviroment"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
+   <p>Bild hochladen (optional):</p>
 
-          const reader = new FileReader();
-          reader.onload = (event) => {
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    const maxWidth = 1200;
-    const scale = Math.min(1, maxWidth / img.width);
+<input
+  id="cameraInput"
+  type="file"
+  accept="image/*"
+  capture="environment"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    canvas.width = img.width * scale;
-    canvas.height = img.height * scale;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxWidth = 1200;
+        const scale = Math.min(1, maxWidth / img.width);
 
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
 
-    const compressed = canvas.toDataURL("image/jpeg", 0.8);
-    setImageData(compressed);
-  };
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  img.src = event.target.result;
-};
+        const compressed = canvas.toDataURL("image/jpeg", 0.8);
+        setImageData(compressed);
+      };
 
-reader.readAsDataURL(file);
-        }}
-      />
+      img.src = event.target.result;
+    };
+
+    reader.readAsDataURL(file);
+  }}
+/>
+
 <button
-onClick={() => document.querySelector('input[type="file"]').click()}
-style={{
-  padding: "14px 18px",
-  fontSize: "18px",
-  borderRadius: "10px",
-  marginTop: 10,
-  color: "red"
-}}
+  onClick={() => document.getElementById("cameraInput").click()}
+  style={{
+    padding: "14px 18px",
+    fontSize: "18px",
+    borderRadius: "10px",
+    marginTop: 10,
+    marginLeft: 10,
+    color: "red",
+  }}
 >
-📷 Foto aufnehmen
+  📷 Foto aufnehmen
 </button>
       <p style={{ marginTop: 16 }}>Aufgabe (Text, optional):</p>
       <textarea
