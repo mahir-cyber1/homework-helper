@@ -1,5 +1,29 @@
 "use client";
+const printStyles = `
+@media print {
+  body * {
+    visibility: hidden;
+  }
 
+  #printArea, #printArea * {
+    visibility: visible;
+  }
+
+  #printArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: black;
+    background: white;
+    padding: 20px;
+  }
+
+  button, input, textarea, select {
+    display: none !important;
+  }
+}
+`;
 import { useState } from "react";
 
 
@@ -44,9 +68,25 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
     }
   }
 
-  return (
-    <main style={{ padding: 40, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
-      <h1>Hausaufgaben Hilfe</h1>
+ return (
+  <main
+    style={{
+      maxWidth: 430,
+      margin: "0 auto",
+      minHeight: "100vh",
+      padding: 20,
+      fontFamily: "Arial, sans-serif",
+      backgroundColor: "#111",
+      color: "white",
+      borderRadius: 24,
+    }}
+  >
+
+    <style>{printStyles}</style>
+
+    <h1 style={{ fontSize: "42px", marginBottom: 20, textAlign: "center" }}>
+      Hausaufgaben Hilfe
+    </h1>
       <div style={{ marginTop: 10 }}>
   <label>Klasse: </label>
   <select value={grade} onChange={(e) => setGrade(e.target.value)}>
@@ -117,7 +157,17 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
         placeholder="Schreibe deine Aufgabe hier rein (optional)..."
         value={task}
         onChange={(e) => setTask(e.target.value)}
-        style={{ width: "100%", height: 120 }}
+        style={{
+  width: "100%",
+  height: 140,
+  fontSize: "18px",
+  padding: 14,
+  borderRadius: 14,
+  border: "1px solid #444",
+  marginTop: 10,
+  backgroundColor: "#1b1b1b",
+  color: "white"
+}}
       />
 
       <div style={{ marginTop: 12 }}>
@@ -146,6 +196,17 @@ Aufgaben erkennen
         <div style={{ marginTop: 20, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
           <h3>Antwort:</h3>
           <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer}</pre>
+          <button
+onClick={() => window.print()}
+style={{
+  marginTop: 20,
+  padding: "12px 16px",
+  fontSize: "16px",
+  borderRadius: "10px"
+}}
+>
+📄 Als PDF speichern / Drucken
+</button>
         </div>
       )}
     </main>
