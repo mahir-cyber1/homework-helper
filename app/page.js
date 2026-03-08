@@ -193,7 +193,17 @@ Aufgaben erkennen
 </div>
 
       {answer && (
-        <div style={{ marginTop: 20, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+        <div
+  id="printArea"
+  style={{
+    marginTop: 20,
+    padding: 12,
+    border: "1px solid #ddd",
+    borderRadius: 8,
+    backgroundColor: "white",
+    color: "black"
+  }}
+>
           <h3>Antwort:</h3>
           <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer}</pre>
           <button
