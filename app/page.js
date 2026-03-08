@@ -96,7 +96,18 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
 reader.readAsDataURL(file);
         }}
       />
-
+<button
+onClick={() => document.querySelector('input[type="file"]').click()}
+style={{
+  padding: "14px 18px",
+  fontSize: "18px",
+  borderRadius: "10px",
+  marginTop: 10,
+  color: "red"
+}}
+>
+📷 Foto aufnehmen
+</button>
       <p style={{ marginTop: 16 }}>Aufgabe (Text, optional):</p>
       <textarea
         placeholder="Schreibe deine Aufgabe hier rein (optional)..."
