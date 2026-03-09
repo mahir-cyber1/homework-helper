@@ -36,8 +36,14 @@ export async function POST(req) {
   }
 
   try {
-    const { grade, subject, task, imageData, mode } = await req.json();
+    const { grade, subject, task, imageData, mode, language } = await req.json();
+const languageNames = {
+  de: "Deutsch",
+  tr: "Türkisch",
+  en: "English",
+};
 
+const selectedLanguage = languageNames[language] || "Deutsch";
     if (!grade || !subject) {
       return Response.json(
         { error: "Bitte Klasse und Fach angeben." },
@@ -99,15 +105,27 @@ Wenn der Nutzer "Aufgaben erkennen" wählt:
 
 Wenn der Nutzer "Aufgabe erklären" wählt:
 → Aufgaben + kurze Erklärung geben.
+
+Wenn der Nutzer "Lösung prüfen" wählt:
+→ Prüfe die eingegebene oder fotografierte Lösung.
+→ Schreibe klar:
+1. ob die Lösung richtig oder falsch ist,
+2. falls falsch: wo der Fehler liegt,
+3. die richtige Lösung in kurzer Form.
 `;
 
-    const prompt = `Klasse: ${grade}
+    const prompt = `WICHTIG: Antworte vollständig auf ${selectedLanguage}.
+
+Klasse: ${grade}
 Fach: ${subject}
-Aufgabe/Text: ${task || "(nur Bild)"} `;
-const instruction =
+Aufgabe/Text: ${task || "(nur Bild)"}`;
+
+ const instruction =
   mode === "extract"
     ? "\n\nWICHTIG: Gib NUR die Aufgaben + Unteraufgaben aus. KEINE Erklärungen."
-    : "\n\nWICHTIG: Erkläre die Aufgaben kurz Schritt-für-Schritt.";
+    : mode === "check"
+    ? "\n\nWICHTIG: Prüfe die Lösung des Nutzers. Schreibe klar, ob die Lösung richtig oder falsch ist. Wenn etwas falsch ist, zeige kurz den Fehler und die richtige Lösung."
+    : "\n\nWICHTIG: Erkläre die Aufgabe kurz Schritt-für-Schritt.";
 
     const userContent = imageData
   ? [

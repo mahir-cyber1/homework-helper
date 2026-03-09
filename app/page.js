@@ -25,16 +25,71 @@ const printStyles = `
 }
 `;
 import { useState } from "react";
-
+import Image from "next/image";
 
 export default function Home() {
   const [task, setTask] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
+  const [language, setLanguage] = useState("de");
   const [imageData, setImageData] = useState(null);
   const [grade, setGrade] = useState("4");
 const [subject, setSubject] = useState("Mathe");
 const [mode, setMode] = useState("explain"); // "extract" oder "explain"
+const translations = {
+  de: {
+    selectLanguage: "Sprache",
+    takePhoto: "📷 Foto aufnehmen",
+    detectTasks: "🧠 Aufgabe erkennen & erklären",
+    checkSolution: "✅ Lösung prüfen",
+    taskText: "Aufgabe (Text optional)",
+    taskPlaceholder: "Schreibe deine Aufgabe hier rein (optional)...",
+    gradeLabel: "Klasse",
+    subjectLabel: "Fach",
+    gradePlaceholder: "Klasse wählen",
+    subjectPlaceholder: "Fach wählen",
+    subjectGerman: "Deutsch",
+    subjectMath: "Mathe",
+    subjectEnglish: "Englisch",
+    title: "Hausaufgaben Hilfe",
+  },
+  tr: {
+    selectLanguage: "Dil",
+    takePhoto: "📷 Foto çek",
+    detectTasks: "🧠 Ödevi algıla ve açıkla",
+    checkSolution: "✅ Cevabı kontrol et",
+    taskText: "Ödev (metin, isteğe bağlı)",
+    taskPlaceholder: "Ödevini buraya yaz (isteğe bağlı)...",
+    gradeLabel: "Sınıf",
+    subjectLabel: "Ders",
+    gradePlaceholder: "Sınıf seç",
+    subjectPlaceholder: "Ders seç",
+    subjectGerman: "Almanca",
+    subjectMath: "Matematik",
+    subjectEnglish: "İngilizce",
+    title: "Ödev Yardımı",
+  },
+  en: {
+    selectLanguage: "Language",
+    takePhoto: "📷 Take photo",
+    detectTasks: "🧠 Detect & explain task",
+    checkSolution: "✅ Check solution",
+    taskText: "Task (text optional)",
+    taskPlaceholder: "Write your task here (optional)...",
+    gradeLabel: "Grade",
+    subjectLabel: "Subject",
+    gradePlaceholder: "Choose grade",
+    subjectPlaceholder: "Choose subject",
+    subjectGerman: "German",
+    subjectMath: "Math",
+    subjectEnglish: "English",
+    title: "Homework Helper",
+  }
+};
+
+
+
+const t = translations[language];
 
   async function explainTask() {
     setLoading(true);
@@ -50,6 +105,7 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
   task: task,
   imageData: imageData,
   mode: mode,
+  language: language
 }),
 
       });
@@ -80,28 +136,64 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
       color: "white",
       borderRadius: 24,
     }}
+   
   >
+<div style={{ marginBottom: 16 }}>
+  <label style={{ display: "block", marginBottom: 6 }}>
+    {t.selectLanguage}
+  </label>
 
-    <style>{printStyles}</style>
-
-    <h1 style={{ fontSize: "42px", marginBottom: 20, textAlign: "center" }}>
-      Hausaufgaben Hilfe
-    </h1>
-      <div style={{ marginTop: 10 }}>
-  <label>Klasse: </label>
-  <select value={grade} onChange={(e) => setGrade(e.target.value)}>
-    <option value="4">4</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-  </select>
-
-  <span style={{ marginLeft: 20 }}>Fach: </span>
-  <select value={subject} onChange={(e) => setSubject(e.target.value)}>
-    <option value="Mathe">Mathe</option>
-    <option value="Deutsch">Deutsch</option>
-    <option value="Englisch">Englisch</option>
-  </select>
+  <select
+  value={language}
+  onChange={(e) => setLanguage(e.target.value)}
+  style={{
+    width: "100%",
+    padding: "10px",
+    borderRadius: "10px",
+    fontSize: "16px"
+  }}
+>
+  <option value="de">Deutsch</option>
+  <option value="tr">Türkçe</option>
+  <option value="en">English</option>
+</select>
 </div>
+
+<style>{printStyles}</style>
+
+<div
+  style={{
+    textAlign: "center",
+    marginBottom: 20,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  }}
+>
+  <img
+    src="/logo.png"
+    alt="Homework Helper Logo"
+    style={{
+      width: "90px",
+      height: "90px",
+      marginBottom: "10px",
+      borderRadius: "20px",
+    }}
+  />
+
+  <h1
+    style={{
+      fontSize: "30px",
+      lineHeight: "1.2",
+      margin: 0,
+      textAlign: "center",
+    }}
+  >
+    {t.title}
+  </h1>
+</div>
+
+
 
    <p>Bild hochladen (optional):</p>
 
@@ -150,11 +242,25 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
     color: "red",
   }}
 >
-  📷 Foto aufnehmen
+ <button
+  style={{
+    width: "100%",
+    padding: "18px",
+    fontSize: "20px",
+    fontWeight: "bold",
+    borderRadius: "14px",
+    border: "none",
+    backgroundColor: "#e53935",
+    color: "white",
+    marginBottom: "12px",
+  }}
+>
+  {t.takePhoto}
 </button>
-      <p style={{ marginTop: 16 }}>Aufgabe (Text, optional):</p>
+</button>
+      <p style={{ marginTop: 16 }}>{t.taskText}</p>
       <textarea
-        placeholder="Schreibe deine Aufgabe hier rein (optional)..."
+        placeholder={t.taskPlaceholder}
         value={task}
         onChange={(e) => setTask(e.target.value)}
         style={{
@@ -171,25 +277,44 @@ const [mode, setMode] = useState("explain"); // "extract" oder "explain"
       />
 
       <div style={{ marginTop: 12 }}>
- <button
-onClick={() => { setMode("extract"); explainTask(); }}
-disabled={loading}
-style={{ padding: "14px 18px", fontSize: "18px", borderRadius: "10px" }}
->
-Aufgaben erkennen
-</button>
+  <button
+    onClick={() => { setMode("explain"); explainTask(); }}
+    disabled={loading}
+    style={{
+      width: "100%",
+      padding: "18px",
+      fontSize: "20px",
+      fontWeight: "bold",
+      borderRadius: "14px",
+      border: "none",
+      backgroundColor: "#fb8c00",
+      color: "white",
+      marginBottom: "12px",
+    }}
+  >
+    {t.detectTasks}
+  </button>
+
+  
   
 
   <button
-    onClick={() => {
-      setTask("Bitte prüfe meine Lösung und erkläre Fehler:\n\n" + task);
-      explainTask();
-    }}
-    disabled={loading}
-    style={{ marginLeft: 10, padding: "14px 18px", fontSize: "18px", borderRadius: "10px" }}
-  >
-    Lösung prüfen
-  </button>
+  onClick={() => { setMode("check"); explainTask(); }}
+  disabled={loading}
+  style={{
+    width: "100%",
+    padding: "18px",
+    fontSize: "20px",
+    fontWeight: "bold",
+    borderRadius: "14px",
+    border: "none",
+    backgroundColor: "#43a047",
+    color: "white",
+    marginBottom: "12px",
+  }}
+>
+  {t.checkSolution}
+</button>
 </div>
 
       {answer && (
