@@ -201,7 +201,7 @@ const t = translations[language];
   id="cameraInput"
   type="file"
   accept="image/*"
-  capture="environment"
+  capture
   onChange={(e) => {
     const file = e.target.files?.[0];
     if (!file) return;
