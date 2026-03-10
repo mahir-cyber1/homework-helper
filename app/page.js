@@ -96,6 +96,9 @@ const t = translations[language];
     setAnswer("");
 
     try {
+      console.log("mode:", mode);
+console.log("task:", task);
+console.log("imageData vorhanden:", !!imageData);
       const res = await fetch("/api/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
