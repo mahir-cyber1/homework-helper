@@ -174,7 +174,7 @@ console.log("imageData vorhanden:", !!imageData);
   }}
 >
   <img
-    src="/logo.png"
+    src="/logo2.png"
     alt="Homework Helper Logo"
     style={{
       width: "90px",
