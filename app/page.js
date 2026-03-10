@@ -208,6 +208,8 @@ console.log("imageData vorhanden:", !!imageData);
   onChange={(e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImageData("");
+setAnswer("");
 
     const reader = new FileReader();
     reader.onload = (event) => {
