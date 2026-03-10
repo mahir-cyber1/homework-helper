@@ -121,11 +121,9 @@ Fach: ${subject}
 Aufgabe/Text: ${task || "(nur Bild)"}`;
 
  const instruction =
-  mode === "extract"
-    ? "\n\nWICHTIG: Gib NUR die Aufgaben + Unteraufgaben aus. KEINE Erklärungen."
-    : mode === "check"
-    ? "\n\nWICHTIG: Prüfe die Lösung des Nutzers. Schreibe klar, ob die Lösung richtig oder falsch ist. Wenn etwas falsch ist, zeige kurz den Fehler und die richtige Lösung."
-    : "\n\nWICHTIG: Erkläre die Aufgabe kurz Schritt-für-Schritt.";
+  mode === "check"
+    ? "\n\nWICHTIG: Prüfe die Lösung des Nutzers. Schreibe klar, ob sie richtig oder falsch ist. Wenn falsch, zeige kurz den Fehler und die richtige Lösung."
+    : "\n\nWICHTIG: Erkläre die erkannte Aufgabe kurz Schritt für Schritt.";
 
     const userContent = imageData
   ? [
