@@ -15,8 +15,8 @@ export const metadata = {
   title: "Homework Helper",
   description: "KI Hausaufgaben Hilfe",
   icons: {
-    icon: "/icon.png",
-    apple: "/icon.png",
+    icon: "/icon2.png",
+    apple: "/icon2.png",
   },
 };
 
