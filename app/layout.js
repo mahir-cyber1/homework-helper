@@ -14,11 +14,25 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Homework Helper",
   description: "KI Hausaufgaben Hilfe",
+
   icons: {
     icon: "/icon2.png",
     apple: "/icon2.png",
   },
+
+  openGraph: {
+    title: "Homework Helper",
+    description: "KI Hausaufgaben Hilfe für Kinder",
+    images: [
+      {
+        url: "/icon2.png",
+        width: 512,
+        height: 512,
+      },
+    ],
+  },
 };
+
 
 
 export default function RootLayout({ children }) {
