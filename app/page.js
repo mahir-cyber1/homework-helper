@@ -3,6 +3,27 @@
 import { useState } from "react";
 
 const printStyles = `
+const overlayStyle = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  backgroundColor: "rgba(0,0,0,0.7)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+};
+
+const overlayBoxStyle = {
+  backgroundColor: "#1e1e1e",
+  color: "white",
+  padding: "30px",
+  borderRadius: "20px",
+  textAlign: "center",
+  minWidth: "200px",
+};
 @media print {
   body * {
     visibility: hidden;
@@ -329,7 +350,7 @@ export default function Home() {
             marginBottom: "12px",
           }}
         >
-          {t.detectTasks}
+          {loading ? "⏳ Bitte warten..." : t.detectTasks}
         </button>
 
         <button
@@ -347,11 +368,18 @@ export default function Home() {
             marginBottom: "12px",
           }}
         >
-          {t.checkSolution}
+          {loading ? "⏳ Bitte warten..." : t.checkSolution}
         </button>
       </div>
 
-      {loading && <p>...</p>}
+      {loading && (
+  <div style={overlayStyle}>
+    <div style={overlayBoxStyle}>
+      <div style={{ fontSize: 50, marginBottom: 10 }}>⏳</div>
+      <p>Wird bearbeitet...</p>
+    </div>
+  </div>
+)}
 
       {answer && (
         <div
