@@ -3,27 +3,6 @@
 import { useState } from "react";
 
 const printStyles = `
-const overlayStyle = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  backgroundColor: "rgba(0,0,0,0.7)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 9999,
-};
-
-const overlayBoxStyle = {
-  backgroundColor: "#1e1e1e",
-  color: "white",
-  padding: "30px",
-  borderRadius: "20px",
-  textAlign: "center",
-  minWidth: "200px",
-};
 @media print {
   body * {
     visibility: hidden;
@@ -48,6 +27,28 @@ const overlayBoxStyle = {
   }
 }
 `;
+
+const overlayStyle = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  backgroundColor: "rgba(0,0,0,0.7)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999,
+};
+
+const overlayBoxStyle = {
+  backgroundColor: "#1e1e1e",
+  color: "white",
+  padding: "30px",
+  borderRadius: "20px",
+  textAlign: "center",
+  minWidth: "200px",
+};
 
 export default function Home() {
   const [task, setTask] = useState("");
@@ -75,6 +76,8 @@ export default function Home() {
       uploadImage: "Bild hochladen (optional):",
       answerLabel: "Antwort:",
       printPdf: "📄 Als PDF speichern / Drucken",
+      loadingText: "Wird bearbeitet...",
+      pleaseWait: "⏳ Bitte warten...",
     },
     tr: {
       selectLanguage: "Dil",
@@ -92,6 +95,8 @@ export default function Home() {
       uploadImage: "Görsel yükle (isteğe bağlı):",
       answerLabel: "Cevap:",
       printPdf: "📄 PDF olarak kaydet / Yazdır",
+      loadingText: "İşleniyor...",
+      pleaseWait: "⏳ Lütfen bekleyin...",
     },
     en: {
       selectLanguage: "Language",
@@ -109,6 +114,8 @@ export default function Home() {
       uploadImage: "Upload image (optional):",
       answerLabel: "Answer:",
       printPdf: "📄 Save as PDF / Print",
+      loadingText: "Processing...",
+      pleaseWait: "⏳ Please wait...",
     },
   };
 
@@ -198,6 +205,15 @@ export default function Home() {
       }}
     >
       <style>{printStyles}</style>
+
+      {loading && (
+        <div style={overlayStyle}>
+          <div style={overlayBoxStyle}>
+            <div style={{ fontSize: 50, marginBottom: 10 }}>⏳</div>
+            <p>{t.loadingText}</p>
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: 16 }}>
         <label style={{ display: "block", marginBottom: 6 }}>
@@ -299,6 +315,7 @@ export default function Home() {
 
       <button
         onClick={() => document.getElementById("cameraInput")?.click()}
+        disabled={loading}
         style={{
           width: "100%",
           padding: "18px",
@@ -309,6 +326,8 @@ export default function Home() {
           backgroundColor: "#e53935",
           color: "white",
           marginBottom: "12px",
+          opacity: loading ? 0.7 : 1,
+          cursor: loading ? "not-allowed" : "pointer",
         }}
       >
         {t.takePhoto}
@@ -348,9 +367,11 @@ export default function Home() {
             backgroundColor: "#fb8c00",
             color: "white",
             marginBottom: "12px",
+            opacity: loading ? 0.7 : 1,
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "⏳ Bitte warten..." : t.detectTasks}
+          {loading ? t.pleaseWait : t.detectTasks}
         </button>
 
         <button
@@ -366,20 +387,13 @@ export default function Home() {
             backgroundColor: "#43a047",
             color: "white",
             marginBottom: "12px",
+            opacity: loading ? 0.7 : 1,
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "⏳ Bitte warten..." : t.checkSolution}
+          {loading ? t.pleaseWait : t.checkSolution}
         </button>
       </div>
-
-      {loading && (
-  <div style={overlayStyle}>
-    <div style={overlayBoxStyle}>
-      <div style={{ fontSize: 50, marginBottom: 10 }}>⏳</div>
-      <p>Wird bearbeitet...</p>
-    </div>
-  </div>
-)}
 
       {answer && (
         <div
