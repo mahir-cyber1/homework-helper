@@ -32,42 +32,10 @@ const printStyles = `
     display: none !important;
   }
 
-  .pdf-title {
-    font-size: 26px;
-    font-weight: bold;
-    margin-bottom: 12px;
-    border-bottom: 2px solid black;
-    padding-bottom: 10px;
-  }
-
-  .pdf-meta {
-    font-size: 14px;
-    margin-bottom: 22px;
-    line-height: 1.6;
-  }
-
-  .pdf-section {
-    margin-top: 22px;
-  }
-
-  .pdf-section h3 {
-    font-size: 18px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid #ccc;
-    padding-bottom: 5px;
-  }
-
-  .pdf-content {
-    white-space: pre-wrap;
-    font-size: 15px;
-    line-height: 1.6;
-  }
-
   button, input, textarea, select {
     display: none !important;
   }
 }
-
 `;
 
 const overlayStyle = {
@@ -98,12 +66,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState("de");
   const [imageData, setImageData] = useState(null);
+  const [fileData, setFileData] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const [fileMime, setFileMime] = useState("");
   const [grade, setGrade] = useState("4");
   const [subject, setSubject] = useState("Mathe");
 
   const translations = {
     de: {
       selectLanguage: "Sprache",
+      uploadFile: "📄 Datei hochladen",
       takePhoto: "📷 Foto aufnehmen",
       detectTasks: "🧠 Aufgabe erkennen & erklären",
       checkSolution: "✅ Lösung prüfen",
@@ -115,7 +87,7 @@ export default function Home() {
       subjectMath: "Mathe",
       subjectEnglish: "Englisch",
       title: "Hausaufgaben Hilfe",
-      uploadImage: "Bild hochladen (optional):",
+      uploadImage: "Datei oder Bild hochladen:",
       answerLabel: "Antwort:",
       printPdf: "📄 Als PDF speichern / Drucken",
       loadingText: "Wird bearbeitet...",
@@ -123,6 +95,7 @@ export default function Home() {
     },
     tr: {
       selectLanguage: "Dil",
+      uploadFile: "📄 Dosya yükle",
       takePhoto: "📷 Foto çek",
       detectTasks: "🧠 Ödevi algıla ve açıkla",
       checkSolution: "✅ Cevabı kontrol et",
@@ -134,7 +107,7 @@ export default function Home() {
       subjectMath: "Matematik",
       subjectEnglish: "İngilizce",
       title: "Ödev Yardımı",
-      uploadImage: "Görsel yükle (isteğe bağlı):",
+      uploadImage: "Dosya veya görsel yükle:",
       answerLabel: "Cevap:",
       printPdf: "📄 PDF olarak kaydet / Yazdır",
       loadingText: "İşleniyor...",
@@ -142,6 +115,7 @@ export default function Home() {
     },
     en: {
       selectLanguage: "Language",
+      uploadFile: "📄 Upload file",
       takePhoto: "📷 Take photo",
       detectTasks: "🧠 Detect & explain task",
       checkSolution: "✅ Check solution",
@@ -153,7 +127,7 @@ export default function Home() {
       subjectMath: "Math",
       subjectEnglish: "English",
       title: "Homework Helper",
-      uploadImage: "Upload image (optional):",
+      uploadImage: "Upload file or image:",
       answerLabel: "Answer:",
       printPdf: "📄 Save as PDF / Print",
       loadingText: "Processing...",
@@ -176,6 +150,9 @@ export default function Home() {
           subject,
           task,
           imageData,
+          fileData,
+          fileName,
+          fileMime,
           mode: selectedMode,
           language,
         }),
@@ -195,42 +172,59 @@ export default function Home() {
     }
   }
 
-  function handleImageChange(e) {
+  function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setImageData(null);
+    setFileData(null);
+    setFileName(file.name);
+    setFileMime(file.type);
     setAnswer("");
 
-    const reader = new FileReader();
+    if (file.type === "application/pdf") {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFileData(event.target.result);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
 
-    reader.onload = (event) => {
-      const img = new window.Image();
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
 
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const maxWidth = 1200;
-        const scale = Math.min(1, maxWidth / img.width);
+      reader.onload = (event) => {
+        const img = new window.Image();
 
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxWidth = 1200;
+          const scale = Math.min(1, maxWidth / img.width);
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          setAnswer("FEHLER: Bild konnte nicht verarbeitet werden.");
-          return;
-        }
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
 
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            setAnswer("FEHLER: Bild konnte nicht verarbeitet werden.");
+            return;
+          }
 
-        const compressed = canvas.toDataURL("image/jpeg", 0.8);
-        setImageData(compressed);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const compressed = canvas.toDataURL("image/jpeg", 0.8);
+          setImageData(compressed);
+        };
+
+        img.src = event.target.result;
       };
 
-      img.src = event.target.result;
-    };
+      reader.readAsDataURL(file);
+      return;
+    }
 
-    reader.readAsDataURL(file);
+    setAnswer("FEHLER: Bitte nur Bild oder PDF hochladen.");
   }
 
   return (
@@ -347,12 +341,46 @@ export default function Home() {
       <p>{t.uploadImage}</p>
 
       <input
+        id="fileInput"
+        type="file"
+        accept="image/*,.pdf,application/pdf"
+        onChange={handleFileChange}
+        style={{ display: "none" }}
+      />
+
+      <button
+        onClick={() => document.getElementById("fileInput")?.click()}
+        disabled={loading}
+        style={{
+          width: "100%",
+          padding: "18px",
+          fontSize: "20px",
+          fontWeight: "bold",
+          borderRadius: "14px",
+          border: "none",
+          backgroundColor: "#1976d2",
+          color: "white",
+          marginBottom: "12px",
+          opacity: loading ? 0.7 : 1,
+          cursor: loading ? "not-allowed" : "pointer",
+        }}
+      >
+        {t.uploadFile}
+      </button>
+
+      {fileName && (
+        <p style={{ fontSize: 14, marginTop: -4, marginBottom: 12 }}>
+          Ausgewählt: {fileName}
+        </p>
+      )}
+
+      <input
         id="cameraInput"
         type="file"
         accept="image/*"
-        capture
-        onChange={handleImageChange}
-        style={{ width: "100%", marginBottom: 10 }}
+        capture="environment"
+        onChange={handleFileChange}
+        style={{ display: "none" }}
       />
 
       <button
@@ -453,6 +481,7 @@ export default function Home() {
           <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer}</pre>
 
           <button
+            className="no-print"
             onClick={() => window.print()}
             style={{
               marginTop: 20,

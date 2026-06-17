@@ -36,8 +36,17 @@ export async function POST(req) {
   }
 
   try {
-    const { grade, subject, task, imageData, mode, language } =
-      await req.json();
+    const {
+      grade,
+      subject,
+      task,
+      imageData,
+      fileData,
+      fileName,
+      fileMime,
+      mode,
+      language,
+    } = await req.json();
 
     const languageNames = {
       de: "Deutsch",
@@ -54,9 +63,9 @@ export async function POST(req) {
       );
     }
 
-    if (!task && !imageData) {
+    if (!task && !imageData && !fileData) {
       return Response.json(
-        { error: "Bitte Text eingeben oder ein Bild hochladen." },
+        { error: "Bitte Text eingeben, ein Bild oder eine PDF hochladen." },
         { status: 400 }
       );
     }
@@ -73,7 +82,7 @@ Grundregeln:
 - Klasse: ${grade}
 - Fach: ${subject}
 - Erfinde keine Aufgaben dazu.
-- Wenn etwas auf dem Bild nicht lesbar ist, schreibe [UNKLAR].
+- Wenn etwas auf dem Bild oder in der PDF nicht lesbar ist, schreibe [UNKLAR].
 - Lass keine erkennbare Einzelaufgabe weg.
 - Schreibe keine langen Einleitungen.
 - Schreibe nicht "Hier sind..." oder ähnliche Füllsätze.
@@ -99,7 +108,7 @@ WICHTIG für Erklärungen:
       instruction = `
 Modus: Lösung prüfen.
 
-Prüfe die eingegebene oder fotografierte Lösung.
+Prüfe die eingegebene, fotografierte oder als PDF hochgeladene Lösung.
 
 Ausgabeformat:
 
@@ -174,15 +183,27 @@ Wichtig:
     const prompt = `
 Klasse: ${grade}
 Fach: ${subject}
-Aufgabe/Text: ${task || "(nur Bild)"}
+Aufgabe/Text: ${task || "(kein Text eingegeben)"}
+Datei: ${fileName || "(keine Datei)"}
+Dateityp: ${fileMime || "(kein Dateityp)"}
 `;
 
-    const userContent = imageData
-      ? [
-          { type: "input_text", text: prompt + instruction },
-          { type: "input_image", image_url: imageData },
-        ]
-      : [{ type: "input_text", text: prompt + instruction }];
+    const userContent = [{ type: "input_text", text: prompt + instruction }];
+
+    if (imageData) {
+      userContent.push({
+        type: "input_image",
+        image_url: imageData,
+      });
+    }
+
+    if (fileData && fileMime === "application/pdf") {
+      userContent.push({
+        type: "input_file",
+        filename: fileName || "arbeitsblatt.pdf",
+        file_data: fileData,
+      });
+    }
 
     const response = await client.responses.create({
       model: "gpt-4.1-mini",
