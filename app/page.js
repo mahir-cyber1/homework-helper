@@ -4,6 +4,10 @@ import { useState } from "react";
 
 const printStyles = `
 @media print {
+  body {
+    background: white !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -17,15 +21,53 @@ const printStyles = `
     left: 0;
     top: 0;
     width: 100%;
-    color: black;
-    background: white;
-    padding: 20px;
+    color: black !important;
+    background: white !important;
+    padding: 30px;
+    font-family: Arial, sans-serif;
+    box-sizing: border-box;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .pdf-title {
+    font-size: 26px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    border-bottom: 2px solid black;
+    padding-bottom: 10px;
+  }
+
+  .pdf-meta {
+    font-size: 14px;
+    margin-bottom: 22px;
+    line-height: 1.6;
+  }
+
+  .pdf-section {
+    margin-top: 22px;
+  }
+
+  .pdf-section h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+  }
+
+  .pdf-content {
+    white-space: pre-wrap;
+    font-size: 15px;
+    line-height: 1.6;
   }
 
   button, input, textarea, select {
     display: none !important;
   }
 }
+
 `;
 
 const overlayStyle = {
