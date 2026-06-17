@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// simples Limit: 20 Requests/Stunde pro IP (nur für DEV ok)
+// simples Limit: 20 Requests/Stunde pro IP
 const requestLimit = new Map();
 
 export async function POST(req) {
@@ -36,20 +36,24 @@ export async function POST(req) {
   }
 
   try {
-    const { grade, subject, task, imageData, mode, language } = await req.json();
-const languageNames = {
-  de: "Deutsch",
-  tr: "Türkisch",
-  en: "English",
-};
+    const { grade, subject, task, imageData, mode, language } =
+      await req.json();
 
-const selectedLanguage = languageNames[language] || "Deutsch";
+    const languageNames = {
+      de: "Deutsch",
+      tr: "Türkisch",
+      en: "English",
+    };
+
+    const selectedLanguage = languageNames[language] || "Deutsch";
+
     if (!grade || !subject) {
       return Response.json(
         { error: "Bitte Klasse und Fach angeben." },
         { status: 400 }
       );
     }
+
     if (!task && !imageData) {
       return Response.json(
         { error: "Bitte Text eingeben oder ein Bild hochladen." },
@@ -59,91 +63,138 @@ const selectedLanguage = languageNames[language] || "Deutsch";
 
     const system = `
 Du bist ein Lern-Tutor für Kinder der Klassen 4 bis 6.
-- Bei Aufgabe 1: Liste ALLE einzelnen Sätze/Lücken (jede Zeile = eine eigene Einzelaufgabe).
-- Bei Aufgabe 2: Liste ALLE Übersetzungszeilen (jede Zeile = eine eigene Einzelaufgabe).
-WICHTIG BEI ARBEITSBLÄTTERN:
 
-1. Erkenne zuerst die Hauptaufgabe (Überschrift).
-2. Danach erkenne ALLE einzelnen Aufgaben darunter.
+Sprache:
+- Antworte vollständig auf: ${selectedLanguage}
+- Nutze einfache, kindgerechte Sprache.
+- Schreibe klar, ruhig und verständlich.
 
-Erkenne besonders:
-- nummerierte Aufgaben (1., 2., 3., 4., 5.)
-- Listen mit mehreren Zeilen
-- Lückensätze
-- Übersetzungslisten
+Grundregeln:
+- Klasse: ${grade}
+- Fach: ${subject}
+- Erfinde keine Aufgaben dazu.
+- Wenn etwas auf dem Bild nicht lesbar ist, schreibe [UNKLAR].
+- Lass keine erkennbare Einzelaufgabe weg.
+- Schreibe keine langen Einleitungen.
+- Schreibe nicht "Hier sind..." oder ähnliche Füllsätze.
 
-Wenn ein Arbeitsblatt mehrere Aufgaben enthält, strukturiere so:
+Aufgabenerkennung:
+- Erkenne Hauptaufgaben, Unteraufgaben, nummerierte Aufgaben, Lückensätze und Listen.
+- Jede Zeile, jeder Satz oder jede Lücke kann eine eigene Einzelaufgabe sein.
+- Bei Arbeitsblättern mit mehreren Aufgaben: behandle jede erkennbare Einzelaufgabe einzeln.
 
-AUFGABEN:
-
-Aufgabe 1: Fill in the right preposition
-Einzelaufgaben:
-1. ...
-2. ...
-3. ...
-4. ...
-5. ...
-
-Aufgabe 2: Put the following expressions into English
-Einzelaufgaben:
-1. ...
-2. ...
-3. ...
-4. ...
-5. ...
-6. ...
-7. ...
-8. ...
-
-Regeln:
-- Jede einzelne Zeile ist eine eigene Aufgabe.
-- Lass keine Aufgabe weg.
-- Wenn Text schwer lesbar ist, schreibe [UNKLAR].
-
-Wenn der Nutzer "Aufgaben erkennen" wählt:
-→ Nur Aufgaben extrahieren.
-
-Wenn der Nutzer "Aufgabe erklären" wählt:
-→ Aufgaben + kurze Erklärung geben.
-
-Wenn der Nutzer "Lösung prüfen" wählt:
-→ Prüfe die eingegebene oder fotografierte Lösung.
-→ Schreibe klar:
-1. ob die Lösung richtig oder falsch ist,
-2. falls falsch: wo der Fehler liegt,
-3. die richtige Lösung in kurzer Form.
+WICHTIG für Erklärungen:
+- Schreibe die Aufgabenstellung NICHT erneut vollständig ab.
+- Schreibe NICHT zuerst alle Aufgaben untereinander.
+- Beginne direkt mit der Erklärung.
+- Jede erkannte Aufgabe bekommt eine eigene Nummer.
+- Zu jeder Aufgabe muss es eine kurze Erklärung und ein Beispiel geben.
+- Das Beispiel soll ähnlich sein, aber NICHT exakt dieselbe Aufgabe.
+- Wenn möglich, erkläre in 2 bis 4 kurzen Schritten.
 `;
 
-    const prompt = `WICHTIG: Antworte vollständig auf ${selectedLanguage}.
+    let instruction = "";
 
+    if (mode === "check") {
+      instruction = `
+Modus: Lösung prüfen.
+
+Prüfe die eingegebene oder fotografierte Lösung.
+
+Ausgabeformat:
+
+1. Prüfung
+Richtig oder falsch?
+
+Fehler:
+Falls falsch, erkläre kurz den Fehler. Falls richtig, schreibe: Kein Fehler.
+
+Richtige Lösung:
+Schreibe die richtige Lösung kurz und klar.
+
+Beispiel:
+Gib ein kurzes ähnliches Beispiel mit Lösung.
+
+Wenn mehrere Aufgaben vorhanden sind, prüfe jede Aufgabe einzeln nummeriert:
+
+1. Prüfung
+...
+
+2. Prüfung
+...
+
+Wichtig:
+- Wiederhole die Aufgabenstellung nicht vollständig.
+- Schreibe direkt die Prüfung.
+`;
+    } else {
+      instruction = `
+Modus: Aufgabe erkennen und erklären.
+
+Erkläre alle erkannten Aufgaben direkt nummeriert.
+
+Ausgabeformat exakt so:
+
+1. Erklärung
+Kurze Erklärung zur ersten Aufgabe.
+Schritt 1: ...
+Schritt 2: ...
+Schritt 3: ...
+
+Beispiel:
+Ein ähnliches einfaches Beispiel mit Lösung.
+
+2. Erklärung
+Kurze Erklärung zur zweiten Aufgabe.
+Schritt 1: ...
+Schritt 2: ...
+Schritt 3: ...
+
+Beispiel:
+Ein ähnliches einfaches Beispiel mit Lösung.
+
+Wenn nur eine Aufgabe vorhanden ist, nutze trotzdem:
+
+1. Erklärung
+...
+Beispiel:
+...
+
+Wichtig:
+- Schreibe die Aufgaben NICHT nochmal vollständig ab.
+- Keine separate Liste "Aufgaben".
+- Keine Überschrift "AUFGABEN".
+- Keine Wiederholung der Arbeitsblatt-Texte.
+- Direkt erklären.
+- Jede Aufgabe nummerieren.
+- Zu jeder Aufgabe ein Beispiel geben.
+`;
+    }
+
+    const prompt = `
 Klasse: ${grade}
 Fach: ${subject}
-Aufgabe/Text: ${task || "(nur Bild)"}`;
-
- const instruction =
-  mode === "check"
-    ? "\n\nWICHTIG: Prüfe die Lösung des Nutzers. Schreibe klar, ob sie richtig oder falsch ist. Wenn falsch, zeige kurz den Fehler und die richtige Lösung."
-    : "\n\nWICHTIG: Erkläre die erkannte Aufgabe kurz Schritt für Schritt.";
+Aufgabe/Text: ${task || "(nur Bild)"}
+`;
 
     const userContent = imageData
-  ? [
-      { type: "input_text", text: prompt + instruction },
-      { type: "input_image", image_url: imageData },
-    ]
-  : [{ type: "input_text", text: prompt + instruction }];
+      ? [
+          { type: "input_text", text: prompt + instruction },
+          { type: "input_image", image_url: imageData },
+        ]
+      : [{ type: "input_text", text: prompt + instruction }];
 
-    
-const response = await client.responses.create({
-  model: "gpt-4.1-mini",
-  input: [
-    { role: "system", content: system },
-    { role: "user", content: userContent },
-  ],
-});
+    const response = await client.responses.create({
+      model: "gpt-4.1-mini",
+      input: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+    });
 
     const answer = response.output_text || "Keine Antwort erhalten.";
     return Response.json({ answer });
-    } catch (error) {
+  } catch (error) {
     console.error("API ERROR:", error);
     return Response.json(
       { error: String(error?.message || error) },
