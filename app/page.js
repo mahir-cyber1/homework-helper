@@ -77,6 +77,9 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [freeTaskUsed, setFreeTaskUsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameMessage, setNameMessage] = useState("");
 
   const translations = {
     de: {
@@ -143,6 +146,35 @@ export default function Home() {
 
   const t = translations[language];
 
+  async function loadProfile(currentUser) {
+    if (!supabase || !currentUser) return;
+
+    const fallbackName =
+      currentUser.user_metadata?.display_name ||
+      currentUser.email?.split("@")[0] ||
+      "";
+
+    const { data } = await supabase
+      .from("user_profiles")
+      .select("display_name")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
+
+    const profileName = data?.display_name || fallbackName;
+
+    setDisplayName(profileName);
+    setNameDraft(profileName);
+
+    if (!data && profileName) {
+      await supabase.from("user_profiles").upsert({
+        user_id: currentUser.id,
+        email: currentUser.email,
+        display_name: profileName,
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+
   useEffect(() => {
     setFreeTaskUsed(localStorage.getItem(FREE_USAGE_KEY) === "true");
 
@@ -157,6 +189,7 @@ export default function Home() {
       } = await supabase.auth.getUser();
 
       setUser(user);
+      await loadProfile(user);
       setAuthReady(true);
     }
 
@@ -165,7 +198,14 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      if (currentUser) {
+        loadProfile(currentUser);
+      } else {
+        setDisplayName("");
+        setNameDraft("");
+      }
       setAuthReady(true);
     });
 
@@ -177,6 +217,33 @@ export default function Home() {
 
     await supabase.auth.signOut();
     setUser(null);
+    setDisplayName("");
+    setNameDraft("");
+  }
+
+  async function saveDisplayName() {
+    if (!supabase || !user) return;
+
+    const trimmedName = nameDraft.trim().slice(0, 60);
+
+    if (trimmedName.length < 2) {
+      setNameMessage("Bitte mindestens 2 Zeichen eingeben.");
+      return;
+    }
+
+    const { error } = await supabase.from("user_profiles").upsert({
+      user_id: user.id,
+      email: user.email,
+      display_name: trimmedName,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      setNameMessage("Fehler: " + error.message);
+    } else {
+      setDisplayName(trimmedName);
+      setNameMessage("Name gespeichert.");
+    }
   }
 
   async function saveTaskToHistory(mode, savedAnswer) {
@@ -332,8 +399,47 @@ export default function Home() {
         {user ? (
           <>
             <p style={{ margin: "0 0 10px", fontSize: 14 }}>
-              Eingeloggt als: {user.email}
+              Eingeloggt als: {displayName || user.email}
             </p>
+            <input
+              type="text"
+              value={nameDraft}
+              onChange={(e) => {
+                setNameDraft(e.target.value);
+                setNameMessage("");
+              }}
+              placeholder="Name oder Nickname"
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "10px",
+                border: "1px solid #444",
+                backgroundColor: "#111",
+                color: "white",
+                boxSizing: "border-box",
+                marginBottom: 8,
+              }}
+            />
+            <button
+              onClick={saveDisplayName}
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "10px",
+                border: "none",
+                backgroundColor: "#43a047",
+                color: "white",
+                fontWeight: "bold",
+                marginBottom: 8,
+              }}
+            >
+              Name speichern
+            </button>
+            {nameMessage && (
+              <p style={{ margin: "0 0 10px", fontSize: 13 }}>
+                {nameMessage}
+              </p>
+            )}
             <button
               onClick={() => {
                 window.location.href = "/history";
