@@ -192,10 +192,15 @@ export async function POST(req) {
     });
 
     if (!mailResult.sent) {
-      return Response.json({
-        message:
-          "Login-Anfrage gespeichert. Admin-E-Mail ist noch nicht konfiguriert.",
-      });
+      console.error("Approval email failed:", mailResult.reason);
+
+      return Response.json(
+        {
+          error:
+            "Login-Anfrage wurde gespeichert, aber die Freigabe-Mail konnte nicht gesendet werden. Bitte Resend- und Vercel-Einstellungen pruefen.",
+        },
+        { status: 500 }
+      );
     }
 
     return Response.json({
