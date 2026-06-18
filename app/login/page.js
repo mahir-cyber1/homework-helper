@@ -12,6 +12,12 @@ export default function LoginPage() {
     setLoading(true);
     setMessage("");
 
+    if (!supabase) {
+      setMessage("Fehler: Supabase ist noch nicht konfiguriert.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

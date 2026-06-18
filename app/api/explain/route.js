@@ -2,8 +2,6 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 // simples Limit: 20 Requests/Stunde pro IP
 const requestLimit = new Map();
 
@@ -36,6 +34,15 @@ export async function POST(req) {
   }
 
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return Response.json(
+        { error: "OPENAI_API_KEY fehlt in den Umgebungsvariablen." },
+        { status: 500 }
+      );
+    }
+
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
     const {
       grade,
       subject,

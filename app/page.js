@@ -140,6 +140,8 @@ export default function Home() {
   const t = translations[language];
 
   useEffect(() => {
+    if (!supabase) return;
+
     async function getUser() {
       const {
         data: { user },
@@ -160,6 +162,8 @@ export default function Home() {
   }, []);
 
   async function handleSignOut() {
+    if (!supabase) return;
+
     await supabase.auth.signOut();
     setUser(null);
   }
