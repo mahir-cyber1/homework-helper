@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 const printStyles = `
 @media print {
@@ -71,6 +72,7 @@ export default function Home() {
   const [fileMime, setFileMime] = useState("");
   const [grade, setGrade] = useState("4");
   const [subject, setSubject] = useState("Mathe");
+  const [user, setUser] = useState(null);
 
   const translations = {
     de: {
@@ -136,6 +138,31 @@ export default function Home() {
   };
 
   const t = translations[language];
+
+  useEffect(() => {
+    async function getUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUser(user);
+    }
+
+    getUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+  }
 
   async function explainTask(selectedMode) {
     setLoading(true);
@@ -241,6 +268,61 @@ export default function Home() {
       }}
     >
       <style>{printStyles}</style>
+
+      <div
+        className="no-print"
+        style={{
+          marginBottom: 16,
+          padding: 12,
+          borderRadius: 12,
+          backgroundColor: "#1b1b1b",
+          border: "1px solid #333",
+        }}
+      >
+        {user ? (
+          <>
+            <p style={{ margin: "0 0 10px", fontSize: 14 }}>
+              Eingeloggt als: {user.email}
+            </p>
+            <button
+              onClick={handleSignOut}
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "10px",
+                border: "none",
+                backgroundColor: "#444",
+                color: "white",
+                fontWeight: "bold",
+              }}
+            >
+              Abmelden
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ margin: "0 0 10px", fontSize: 14 }}>
+              Du bist nicht eingeloggt.
+            </p>
+            <button
+              onClick={() => {
+                window.location.href = "/login";
+              }}
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "10px",
+                border: "none",
+                backgroundColor: "#1976d2",
+                color: "white",
+                fontWeight: "bold",
+              }}
+            >
+              Einloggen
+            </button>
+          </>
+        )}
+      </div>
 
       {loading && (
         <div style={overlayStyle}>
