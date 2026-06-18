@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+const FREE_USAGE_KEY = "homework-helper-free-task-used";
+
 const printStyles = `
 @media print {
   body {
@@ -73,6 +75,8 @@ export default function Home() {
   const [grade, setGrade] = useState("4");
   const [subject, setSubject] = useState("Mathe");
   const [user, setUser] = useState(null);
+  const [freeTaskUsed, setFreeTaskUsed] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   const translations = {
     de: {
@@ -140,7 +144,12 @@ export default function Home() {
   const t = translations[language];
 
   useEffect(() => {
-    if (!supabase) return;
+    setFreeTaskUsed(localStorage.getItem(FREE_USAGE_KEY) === "true");
+
+    if (!supabase) {
+      setAuthReady(true);
+      return undefined;
+    }
 
     async function getUser() {
       const {
@@ -148,6 +157,7 @@ export default function Home() {
       } = await supabase.auth.getUser();
 
       setUser(user);
+      setAuthReady(true);
     }
 
     getUser();
@@ -156,6 +166,7 @@ export default function Home() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
+      setAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
@@ -168,7 +179,34 @@ export default function Home() {
     setUser(null);
   }
 
+  async function saveTaskToHistory(mode, savedAnswer) {
+    if (!supabase || !user) return;
+
+    const { error } = await supabase.from("homework_history").insert({
+      user_id: user.id,
+      grade,
+      subject,
+      language,
+      mode,
+      task: task || "",
+      answer: savedAnswer,
+      file_name: fileName || null,
+      file_mime: fileMime || null,
+    });
+
+    if (error) {
+      console.error("History save error:", error);
+    }
+  }
+
   async function explainTask(selectedMode) {
+    if (!authReady) return;
+
+    if (!user && freeTaskUsed) {
+      window.location.href = "/login";
+      return;
+    }
+
     setLoading(true);
     setAnswer("");
 
@@ -194,7 +232,15 @@ export default function Home() {
       if (!res.ok) {
         setAnswer("FEHLER: " + (data?.error || "Unbekannt"));
       } else {
-        setAnswer(data?.answer || "Keine Antwort im Response.");
+        const newAnswer = data?.answer || "Keine Antwort im Response.";
+        setAnswer(newAnswer);
+
+        if (user) {
+          await saveTaskToHistory(selectedMode, newAnswer);
+        } else {
+          localStorage.setItem(FREE_USAGE_KEY, "true");
+          setFreeTaskUsed(true);
+        }
       }
     } catch (e) {
       setAnswer("FEHLER: " + (e?.message || "Unbekannt"));
@@ -289,6 +335,23 @@ export default function Home() {
               Eingeloggt als: {user.email}
             </p>
             <button
+              onClick={() => {
+                window.location.href = "/history";
+              }}
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "10px",
+                border: "none",
+                backgroundColor: "#1976d2",
+                color: "white",
+                fontWeight: "bold",
+                marginBottom: 8,
+              }}
+            >
+              Meine Aufgaben
+            </button>
+            <button
               onClick={handleSignOut}
               style={{
                 width: "100%",
@@ -306,7 +369,9 @@ export default function Home() {
         ) : (
           <>
             <p style={{ margin: "0 0 10px", fontSize: 14 }}>
-              Du bist nicht eingeloggt.
+              {freeTaskUsed
+                ? "Eine Aufgabe wurde kostenlos gelöst. Für weitere Aufgaben bitte einloggen."
+                : "Du bist nicht eingeloggt. Eine Aufgabe kannst du kostenlos lösen."}
             </p>
             <button
               onClick={() => {
@@ -512,7 +577,7 @@ export default function Home() {
       <div style={{ marginTop: 12 }}>
         <button
           onClick={() => explainTask("explain")}
-          disabled={loading}
+          disabled={loading || !authReady}
           style={{
             width: "100%",
             padding: "18px",
@@ -523,8 +588,8 @@ export default function Home() {
             backgroundColor: "#fb8c00",
             color: "white",
             marginBottom: "12px",
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading || !authReady ? 0.7 : 1,
+            cursor: loading || !authReady ? "not-allowed" : "pointer",
           }}
         >
           {loading ? t.pleaseWait : t.detectTasks}
@@ -532,7 +597,7 @@ export default function Home() {
 
         <button
           onClick={() => explainTask("check")}
-          disabled={loading}
+          disabled={loading || !authReady}
           style={{
             width: "100%",
             padding: "18px",
@@ -543,8 +608,8 @@ export default function Home() {
             backgroundColor: "#43a047",
             color: "white",
             marginBottom: "12px",
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading || !authReady ? 0.7 : 1,
+            cursor: loading || !authReady ? "not-allowed" : "pointer",
           }}
         >
           {loading ? t.pleaseWait : t.checkSolution}
