@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getLeague } from "../lib/gamification";
 import { getProfileAvatar } from "../lib/profileAvatars";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
@@ -81,6 +82,8 @@ export default function Home() {
   const [authReady, setAuthReady] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [avatarId, setAvatarId] = useState("star");
+  const [gameStats, setGameStats] = useState(null);
+  const [pointsMessage, setPointsMessage] = useState("");
 
   const translations = {
     de: {
@@ -150,6 +153,34 @@ export default function Home() {
     ? ADMIN_EMAILS.includes(String(user.email || "").trim().toLowerCase())
     : false;
   const currentAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
+  const currentLeague = gameStats?.league || getLeague(0);
+
+  const getAccessToken = useCallback(async () => {
+    if (!supabase) return "";
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token || "";
+  }, []);
+
+  const loadGameStats = useCallback(async () => {
+    const token = await getAccessToken();
+
+    if (!token) return;
+
+    const res = await fetch("/api/gamification", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setGameStats(data.stats);
+    }
+  }, [getAccessToken]);
 
   async function loadProfile(currentUser) {
     if (!supabase || !currentUser) return;
@@ -197,6 +228,7 @@ export default function Home() {
 
       setUser(user);
       await loadProfile(user);
+      await loadGameStats();
       setAuthReady(true);
     }
 
@@ -209,15 +241,17 @@ export default function Home() {
       setUser(currentUser);
       if (currentUser) {
         loadProfile(currentUser);
+        loadGameStats();
       } else {
         setDisplayName("");
         setAvatarId("star");
+        setGameStats(null);
       }
       setAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadGameStats]);
 
   async function handleSignOut() {
     if (!supabase) return;
@@ -226,6 +260,7 @@ export default function Home() {
     setUser(null);
     setDisplayName("");
     setAvatarId("star");
+    setGameStats(null);
   }
 
   async function saveTaskToHistory(mode, savedAnswer) {
@@ -258,6 +293,7 @@ export default function Home() {
 
     setLoading(true);
     setAnswer("");
+    setPointsMessage("");
 
     try {
       const res = await fetch("/api/explain", {
@@ -286,6 +322,34 @@ export default function Home() {
 
         if (user) {
           await saveTaskToHistory(selectedMode, newAnswer);
+          if (selectedMode === "check") {
+            const token = await getAccessToken();
+            if (token) {
+              const pointsRes = await fetch("/api/gamification", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  mode: selectedMode,
+                  answer: newAnswer,
+                  subject,
+                  grade,
+                }),
+              });
+
+              if (pointsRes.ok) {
+                const pointsData = await pointsRes.json();
+                setGameStats(pointsData.stats);
+                setPointsMessage(
+                  pointsData.pointsAwarded > 0
+                    ? `+${pointsData.pointsAwarded} Punkte! ${pointsData.stats.league.name}`
+                    : "Geprueft. Fuer richtige Antworten gibt es Punkte."
+                );
+              }
+            }
+          }
         } else {
           localStorage.setItem(FREE_USAGE_KEY, "true");
           setFreeTaskUsed(true);
@@ -435,6 +499,19 @@ export default function Home() {
                 >
                   {isAdmin ? "Admin" : displayName || user.email}
                 </span>
+                {!isAdmin && (
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "#ddd",
+                      marginTop: 3,
+                    }}
+                  >
+                    {currentLeague.icon} {currentLeague.name} ·{" "}
+                    {gameStats?.points || 0} Punkte
+                  </span>
+                )}
               </span>
             </button>
           </>
@@ -701,6 +778,21 @@ export default function Home() {
           }}
         >
           <h3>{t.answerLabel}</h3>
+          {pointsMessage && (
+            <p
+              className="no-print"
+              style={{
+                marginTop: 0,
+                padding: "10px",
+                borderRadius: "8px",
+                backgroundColor: "#e8f5e9",
+                color: "#1b5e20",
+                fontWeight: "bold",
+              }}
+            >
+              {pointsMessage}
+            </p>
+          )}
           <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer}</pre>
 
           <button

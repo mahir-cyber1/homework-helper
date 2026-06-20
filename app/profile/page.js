@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { getLeague } from "../../lib/gamification";
 import { getProfileAvatar, profileAvatars } from "../../lib/profileAvatars";
 
 const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
@@ -13,6 +14,7 @@ export default function ProfilePage() {
   const [avatarId, setAvatarId] = useState("star");
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [gameStats, setGameStats] = useState(null);
   const [message, setMessage] = useState(
     supabase ? "" : "Supabase ist nicht konfiguriert."
   );
@@ -22,6 +24,7 @@ export default function ProfilePage() {
     ? ADMIN_EMAILS.includes(String(user.email || "").trim().toLowerCase())
     : false;
   const currentAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
+  const currentLeague = gameStats?.league || getLeague(0);
 
   useEffect(() => {
     if (!supabase) {
@@ -55,6 +58,24 @@ export default function ProfilePage() {
       setDisplayName(profileName);
       setNameDraft(profileName);
       setAvatarId(profileAvatarId);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.access_token) {
+        const res = await fetch("/api/gamification", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setGameStats(data.stats);
+        }
+      }
+
       setLoading(false);
     }
 
@@ -232,6 +253,36 @@ export default function ProfilePage() {
               </div>
             </div>
           </section>
+
+          {!isAdmin && (
+            <section
+              style={{
+                padding: 14,
+                borderRadius: 12,
+                backgroundColor: "#1b1b1b",
+                border: "1px solid #333",
+                marginBottom: 14,
+              }}
+            >
+              <p style={{ margin: "0 0 8px", fontWeight: "bold" }}>
+                {currentLeague.icon} {currentLeague.name}
+              </p>
+              <p style={{ margin: "0 0 8px", color: "#ccc" }}>
+                {gameStats?.points || 0} Punkte ·{" "}
+                {gameStats?.correctChecks || 0} richtige Prüfungen
+              </p>
+              {gameStats?.nextLeague ? (
+                <p style={{ margin: 0, color: "#aaa", fontSize: 13 }}>
+                  Noch {gameStats.pointsToNextLeague} Punkte bis{" "}
+                  {gameStats.nextLeague.name}.
+                </p>
+              ) : (
+                <p style={{ margin: 0, color: "#aaa", fontSize: 13 }}>
+                  Hoechste Liga erreicht.
+                </p>
+              )}
+            </section>
+          )}
 
           {isAdmin ? (
             <section
