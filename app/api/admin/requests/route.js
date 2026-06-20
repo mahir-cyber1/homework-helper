@@ -72,7 +72,24 @@ export async function GET(req) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  return Response.json({ requests: data || [] });
+  const { data: approvedUsers, error: usersError } = await adminClient
+    .from("approved_login_emails")
+    .select("email,display_name,created_at")
+    .order("created_at", { ascending: false });
+
+  if (usersError) {
+    return Response.json({ error: usersError.message }, { status: 500 });
+  }
+
+  const pendingRequests = (data || []).filter(
+    (request) => request.status === "pending"
+  );
+
+  return Response.json({
+    requests: data || [],
+    pendingRequests,
+    users: approvedUsers || [],
+  });
 }
 
 export async function POST(req) {
@@ -91,13 +108,36 @@ export async function POST(req) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const { id, action } = await req.json();
+  const { id, email, action } = await req.json();
 
-  if (!id || !["approve", "reject"].includes(action)) {
+  if ((!id && !email) || !["approve", "reject", "remove"].includes(action)) {
     return Response.json(
       { error: "Ungueltige Admin-Aktion." },
       { status: 400 }
     );
+  }
+
+  if (action === "remove") {
+    const normalizedEmail = normalizeEmail(email);
+
+    const { error: deleteError } = await adminClient
+      .from("approved_login_emails")
+      .delete()
+      .eq("email", normalizedEmail);
+
+    if (deleteError) {
+      return Response.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    await adminClient
+      .from("login_access_requests")
+      .update({
+        status: "rejected",
+        approved_at: null,
+      })
+      .eq("email", normalizedEmail);
+
+    return Response.json({ ok: true });
   }
 
   const { data: request, error: requestError } = await adminClient

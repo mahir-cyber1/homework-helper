@@ -6,6 +6,8 @@ import { supabase } from "../../lib/supabase";
 export default function AdminPage() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [message, setMessage] = useState(
     supabase ? "" : "Supabase ist nicht konfiguriert."
@@ -46,6 +48,8 @@ export default function AdminPage() {
       setMessage(data?.error || "Admin-Anfragen konnten nicht geladen werden.");
     } else {
       setRequests(data?.requests || []);
+      setPendingRequests(data?.pendingRequests || []);
+      setUsers(data?.users || []);
     }
 
     setLoading(false);
@@ -68,8 +72,8 @@ export default function AdminPage() {
     init();
   }, [loadRequests]);
 
-  async function updateRequest(id, action) {
-    setBusyId(id);
+  async function updateRequest(id, action, email = "") {
+    setBusyId(id || email);
     setMessage("");
 
     const token = await getAccessToken();
@@ -80,7 +84,7 @@ export default function AdminPage() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ id, action }),
+      body: JSON.stringify({ id, action, email }),
     });
 
     const data = await res.json();
@@ -167,11 +171,57 @@ export default function AdminPage() {
         </div>
       )}
 
-      {!loading && requests.length === 0 && !message && (
-        <p>Keine Login-Anfragen vorhanden.</p>
+      {!loading && !message && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#1b1b1b",
+              border: "1px solid #333",
+            }}
+          >
+            <p style={{ margin: "0 0 4px", color: "#aaa", fontSize: 13 }}>
+              Benutzer
+            </p>
+            <p style={{ margin: 0, fontSize: 24, fontWeight: "bold" }}>
+              {users.length}
+            </p>
+          </div>
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: "#1b1b1b",
+              border: "1px solid #333",
+            }}
+          >
+            <p style={{ margin: "0 0 4px", color: "#aaa", fontSize: 13 }}>
+              Warten
+            </p>
+            <p style={{ margin: 0, fontSize: 24, fontWeight: "bold" }}>
+              {pendingRequests.length}
+            </p>
+          </div>
+        </div>
       )}
 
-      {requests.map((request) => (
+      {!loading && !message && (
+        <h2 style={{ fontSize: 22, marginTop: 0 }}>Warten auf Freigabe</h2>
+      )}
+
+      {!loading && pendingRequests.length === 0 && !message && (
+        <p style={{ color: "#ccc" }}>Keine offenen Login-Anfragen.</p>
+      )}
+
+      {pendingRequests.map((request) => (
         <article
           key={request.id}
           style={{
@@ -194,14 +244,13 @@ export default function AdminPage() {
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={() => updateRequest(request.id, "approve")}
-              disabled={busyId === request.id || request.status === "approved"}
+              disabled={busyId === request.id}
               style={{
                 flex: 1,
                 padding: "10px",
                 borderRadius: "10px",
                 border: "none",
-                backgroundColor:
-                  request.status === "approved" ? "#355c38" : "#43a047",
+                backgroundColor: "#43a047",
                 color: "white",
                 fontWeight: "bold",
               }}
@@ -210,14 +259,13 @@ export default function AdminPage() {
             </button>
             <button
               onClick={() => updateRequest(request.id, "reject")}
-              disabled={busyId === request.id || request.status === "rejected"}
+              disabled={busyId === request.id}
               style={{
                 flex: 1,
                 padding: "10px",
                 borderRadius: "10px",
                 border: "none",
-                backgroundColor:
-                  request.status === "rejected" ? "#5c3535" : "#e53935",
+                backgroundColor: "#e53935",
                 color: "white",
                 fontWeight: "bold",
               }}
@@ -227,6 +275,65 @@ export default function AdminPage() {
           </div>
         </article>
       ))}
+
+      {!loading && !message && (
+        <h2 style={{ fontSize: 22, marginTop: 22 }}>Benutzer</h2>
+      )}
+
+      {!loading && users.length === 0 && !message && (
+        <p style={{ color: "#ccc" }}>Noch keine freigegebenen Benutzer.</p>
+      )}
+
+      {users.map((approvedUser) => {
+        const latestRequest = requests.find(
+          (request) => request.email === approvedUser.email
+        );
+
+        return (
+          <article
+            key={approvedUser.email}
+            style={{
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: "#1b1b1b",
+              border: "1px solid #333",
+              marginBottom: 14,
+            }}
+          >
+            <p style={{ margin: "0 0 6px", fontWeight: "bold" }}>
+              {approvedUser.display_name || "Ohne Namen"}
+            </p>
+            <p style={{ margin: "0 0 6px", color: "#ccc" }}>
+              {approvedUser.email}
+            </p>
+            <p style={{ margin: "0 0 10px", fontSize: 13, color: "#aaa" }}>
+              Freigegeben:{" "}
+              {new Date(approvedUser.created_at).toLocaleString("de-DE")}
+            </p>
+            <button
+              onClick={() =>
+                updateRequest(
+                  latestRequest?.id || "",
+                  "remove",
+                  approvedUser.email
+                )
+              }
+              disabled={busyId === (latestRequest?.id || approvedUser.email)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "10px",
+                border: "none",
+                backgroundColor: "#e53935",
+                color: "white",
+                fontWeight: "bold",
+              }}
+            >
+              Freigabe entfernen
+            </button>
+          </article>
+        );
+      })}
     </main>
   );
 }

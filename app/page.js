@@ -83,6 +83,7 @@ export default function Home() {
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   const translations = {
     de: {
@@ -471,46 +472,11 @@ export default function Home() {
                 {nameMessage}
               </p>
             )}
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value);
-                setPasswordMessage("");
-              }}
-              placeholder="Neues Passwort"
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "1px solid #444",
-                backgroundColor: "#111",
-                color: "white",
-                boxSizing: "border-box",
-                marginBottom: 8,
-              }}
-            />
-            <input
-              type="password"
-              value={repeatPassword}
-              onChange={(e) => {
-                setRepeatPassword(e.target.value);
-                setPasswordMessage("");
-              }}
-              placeholder="Passwort wiederholen"
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "1px solid #444",
-                backgroundColor: "#111",
-                color: "white",
-                boxSizing: "border-box",
-                marginBottom: 8,
-              }}
-            />
             <button
-              onClick={savePassword}
+              onClick={() => {
+                setShowPasswordChange(!showPasswordChange);
+                setPasswordMessage("");
+              }}
               style={{
                 width: "100%",
                 padding: "10px",
@@ -522,8 +488,65 @@ export default function Home() {
                 marginBottom: 8,
               }}
             >
-              Passwort speichern
+              Passwort ändern
             </button>
+            {showPasswordChange && (
+              <>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordMessage("");
+                  }}
+                  placeholder="Neues Passwort"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "1px solid #444",
+                    backgroundColor: "#111",
+                    color: "white",
+                    boxSizing: "border-box",
+                    marginBottom: 8,
+                  }}
+                />
+                <input
+                  type="password"
+                  value={repeatPassword}
+                  onChange={(e) => {
+                    setRepeatPassword(e.target.value);
+                    setPasswordMessage("");
+                  }}
+                  placeholder="Passwort wiederholen"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "1px solid #444",
+                    backgroundColor: "#111",
+                    color: "white",
+                    boxSizing: "border-box",
+                    marginBottom: 8,
+                  }}
+                />
+                <button
+                  onClick={savePassword}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "none",
+                    backgroundColor: "#43a047",
+                    color: "white",
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                  }}
+                >
+                  Neues Passwort speichern
+                </button>
+              </>
+            )}
             {passwordMessage && (
               <p style={{ margin: "0 0 10px", fontSize: 13 }}>
                 {passwordMessage}
