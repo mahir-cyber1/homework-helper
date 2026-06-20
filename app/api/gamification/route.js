@@ -39,8 +39,14 @@ async function getUser(req, adminClient) {
   return { user };
 }
 
-function isLikelyCorrectAnswer(answer) {
+function getCorrectTaskCount(answer) {
   const text = String(answer || "").toLowerCase();
+  const markerMatch = text.match(/richtige_aufgaben\s*:\s*(\d+)/i);
+
+  if (markerMatch) {
+    return Number(markerMatch[1]);
+  }
+
   const hasCorrectSignal =
     text.includes("richtig") ||
     text.includes("correct") ||
@@ -54,10 +60,10 @@ function isLikelyCorrectAnswer(answer) {
     text.includes("yanlış") ||
     text.includes("yanlis");
 
-  if (text.includes("kein fehler")) return true;
-  if (hasWrongSignal && !hasCorrectSignal) return false;
+  if (text.includes("kein fehler")) return 1;
+  if (hasWrongSignal && !hasCorrectSignal) return 0;
 
-  return hasCorrectSignal && !text.includes("[unklar]");
+  return hasCorrectSignal && !text.includes("[unklar]") ? 1 : 0;
 }
 
 async function getStats(adminClient, userId) {
@@ -121,13 +127,13 @@ export async function POST(req) {
 
   const { mode, answer, subject, grade } = await req.json();
   const isCheck = mode === "check";
-  const isCorrect = isCheck && isLikelyCorrectAnswer(answer);
-  const pointsAwarded = isCorrect ? 10 : 0;
+  const correctTaskCount = isCheck ? getCorrectTaskCount(answer) : 0;
+  const pointsAwarded = correctTaskCount;
 
   const currentStats = await getStats(adminClient, auth.user.id);
   const nextPoints = currentStats.points + pointsAwarded;
   const nextCorrectChecks =
-    currentStats.correctChecks + (isCorrect ? 1 : 0);
+    currentStats.correctChecks + correctTaskCount;
   const nextTotalChecks = currentStats.totalChecks + (isCheck ? 1 : 0);
 
   await adminClient.from("user_points").upsert({
@@ -144,7 +150,7 @@ export async function POST(req) {
       user_id: auth.user.id,
       email: auth.user.email,
       points: pointsAwarded,
-      event_type: isCorrect ? "correct_check" : "checked_incorrect",
+      event_type: correctTaskCount > 0 ? "correct_tasks" : "checked_incorrect",
       subject: subject || null,
       grade: grade || null,
     });
@@ -154,7 +160,8 @@ export async function POST(req) {
 
   return Response.json({
     pointsAwarded,
-    isCorrect,
+    correctTaskCount,
+    isCorrect: correctTaskCount > 0,
     stats,
   });
 }

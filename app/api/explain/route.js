@@ -142,6 +142,11 @@ Wenn mehrere Aufgaben vorhanden sind, prüfe jede Aufgabe einzeln nummeriert:
 Wichtig:
 - Wiederhole die Aufgabenstellung nicht vollständig.
 - Schreibe direkt die Prüfung.
+- Zaehle am Ende, wie viele einzelne Aufgaben komplett richtig geloest wurden.
+- Schreibe als allerletzte Zeile exakt:
+RICHTIGE_AUFGABEN: Zahl
+- Beispiel: RICHTIGE_AUFGABEN: 3
+- Wenn nichts sicher richtig ist oder alles unklar ist: RICHTIGE_AUFGABEN: 0
 `;
     } else {
       instruction = `

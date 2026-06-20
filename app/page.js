@@ -318,10 +318,13 @@ export default function Home() {
         setAnswer("FEHLER: " + (data?.error || "Unbekannt"));
       } else {
         const newAnswer = data?.answer || "Keine Antwort im Response.";
-        setAnswer(newAnswer);
+        const visibleAnswer = newAnswer
+          .replace(/^\s*RICHTIGE_AUFGABEN\s*:\s*\d+\s*$/gim, "")
+          .trim();
+        setAnswer(visibleAnswer || newAnswer);
 
         if (user) {
-          await saveTaskToHistory(selectedMode, newAnswer);
+          await saveTaskToHistory(selectedMode, visibleAnswer || newAnswer);
           if (selectedMode === "check") {
             const token = await getAccessToken();
             if (token) {
@@ -344,8 +347,8 @@ export default function Home() {
                 setGameStats(pointsData.stats);
                 setPointsMessage(
                   pointsData.pointsAwarded > 0
-                    ? `+${pointsData.pointsAwarded} Punkte! ${pointsData.stats.league.name}`
-                    : "Geprueft. Fuer richtige Antworten gibt es Punkte."
+                    ? `${pointsData.correctTaskCount} richtig geloest · +${pointsData.pointsAwarded} Punkte · ${pointsData.stats.league.name}`
+                    : "Geprueft. Fuer jede richtig geloeste Aufgabe gibt es 1 Punkt."
                 );
               }
             }
