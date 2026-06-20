@@ -171,14 +171,22 @@ export async function POST(req) {
     const loginAllowed = approved || isAdminEmail;
 
     if (isAdminEmail && !approved) {
-      await adminClient.from("approved_login_emails").upsert(
-        {
-          email: normalizedEmail,
-          display_name: normalizedDisplayName,
-          display_name_key: getDisplayNameKey(normalizedDisplayName),
-        },
-        { onConflict: "email" }
-      );
+      const approvalPayload = {
+        email: normalizedEmail,
+        display_name: normalizedDisplayName,
+        display_name_key: getDisplayNameKey(normalizedDisplayName),
+      };
+
+      const { error: adminApprovalError } = await adminClient
+        .from("approved_login_emails")
+        .upsert(approvalPayload, { onConflict: "email" });
+
+      if (isMissingDisplayNameKeyError(adminApprovalError)) {
+        delete approvalPayload.display_name_key;
+        await adminClient
+          .from("approved_login_emails")
+          .upsert(approvalPayload, { onConflict: "email" });
+      }
     }
 
     if (loginAllowed) {

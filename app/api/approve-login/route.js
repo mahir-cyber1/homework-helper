@@ -29,6 +29,17 @@ function getDisplayNameKey(displayName) {
   return String(displayName || "").trim().toLowerCase();
 }
 
+function isMissingDisplayNameKeyError(error) {
+  const message = String(error?.message || "");
+
+  return (
+    message.includes("display_name_key") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("Could not find"))
+  );
+}
+
 function html(body) {
   return new Response(
     `<!doctype html>
@@ -103,18 +114,27 @@ export async function GET(req) {
     return html("<h1>Fehler</h1><p>Dieser Freigabe-Link ist ungueltig.</p>");
   }
 
+  const approvalPayload = {
+    email: request.email,
+    display_name: request.display_name,
+    display_name_key: getDisplayNameKey(request.display_name),
+  };
+
   const { error: approvalError } = await adminClient
     .from("approved_login_emails")
-    .upsert(
-      {
-        email: request.email,
-        display_name: request.display_name,
-        display_name_key: getDisplayNameKey(request.display_name),
-      },
-      { onConflict: "email" }
-    );
+    .upsert(approvalPayload, { onConflict: "email" });
 
-  if (approvalError) {
+  if (isMissingDisplayNameKeyError(approvalError)) {
+    delete approvalPayload.display_name_key;
+
+    const { error: fallbackError } = await adminClient
+      .from("approved_login_emails")
+      .upsert(approvalPayload, { onConflict: "email" });
+
+    if (fallbackError) {
+      return html(`<h1>Fehler</h1><p>${fallbackError.message}</p>`);
+    }
+  } else if (approvalError) {
     return html(`<h1>Fehler</h1><p>${approvalError.message}</p>`);
   }
 

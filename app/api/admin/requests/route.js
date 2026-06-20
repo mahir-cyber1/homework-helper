@@ -23,6 +23,17 @@ function getDisplayNameKey(displayName) {
   return String(displayName || "").trim().toLowerCase();
 }
 
+function isMissingDisplayNameKeyError(error) {
+  const message = String(error?.message || "");
+
+  return (
+    message.includes("display_name_key") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("Could not find"))
+  );
+}
+
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -176,18 +187,27 @@ export async function POST(req) {
   }
 
   if (action === "approve") {
+    const approvalPayload = {
+      email: request.email,
+      display_name: request.display_name,
+      display_name_key: getDisplayNameKey(request.display_name),
+    };
+
     const { error: approvalError } = await adminClient
       .from("approved_login_emails")
-      .upsert(
-        {
-          email: request.email,
-          display_name: request.display_name,
-          display_name_key: getDisplayNameKey(request.display_name),
-        },
-        { onConflict: "email" }
-      );
+      .upsert(approvalPayload, { onConflict: "email" });
 
-    if (approvalError) {
+    if (isMissingDisplayNameKeyError(approvalError)) {
+      delete approvalPayload.display_name_key;
+
+      const { error: fallbackError } = await adminClient
+        .from("approved_login_emails")
+        .upsert(approvalPayload, { onConflict: "email" });
+
+      if (fallbackError) {
+        return Response.json({ error: fallbackError.message }, { status: 500 });
+      }
+    } else if (approvalError) {
       return Response.json({ error: approvalError.message }, { status: 500 });
     }
   } else {
