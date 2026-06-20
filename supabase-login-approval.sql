@@ -24,9 +24,13 @@ create table if not exists public.user_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   display_name text not null,
+  avatar_id text not null default 'star',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.user_profiles
+add column if not exists avatar_id text not null default 'star';
 
 alter table public.approved_login_emails enable row level security;
 alter table public.login_access_requests enable row level security;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getProfileAvatar } from "../lib/profileAvatars";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
 const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
@@ -79,12 +80,7 @@ export default function Home() {
   const [freeTaskUsed, setFreeTaskUsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [nameDraft, setNameDraft] = useState("");
-  const [nameMessage, setNameMessage] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [repeatPassword, setRepeatPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [avatarId, setAvatarId] = useState("star");
 
   const translations = {
     de: {
@@ -153,6 +149,7 @@ export default function Home() {
   const isAdmin = user
     ? ADMIN_EMAILS.includes(String(user.email || "").trim().toLowerCase())
     : false;
+  const currentAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
 
   async function loadProfile(currentUser) {
     if (!supabase || !currentUser) return;
@@ -164,20 +161,22 @@ export default function Home() {
 
     const { data } = await supabase
       .from("user_profiles")
-      .select("display_name")
+      .select("display_name,avatar_id")
       .eq("user_id", currentUser.id)
       .maybeSingle();
 
     const profileName = data?.display_name || fallbackName;
+    const profileAvatarId = data?.avatar_id || "star";
 
     setDisplayName(profileName);
-    setNameDraft(profileName);
+    setAvatarId(profileAvatarId);
 
     if (!data && profileName) {
       await supabase.from("user_profiles").upsert({
         user_id: currentUser.id,
         email: currentUser.email,
         display_name: profileName,
+        avatar_id: profileAvatarId,
         updated_at: new Date().toISOString(),
       });
     }
@@ -212,7 +211,7 @@ export default function Home() {
         loadProfile(currentUser);
       } else {
         setDisplayName("");
-        setNameDraft("");
+        setAvatarId("star");
       }
       setAuthReady(true);
     });
@@ -226,60 +225,7 @@ export default function Home() {
     await supabase.auth.signOut();
     setUser(null);
     setDisplayName("");
-    setNameDraft("");
-  }
-
-  async function saveDisplayName() {
-    if (!supabase || !user) return;
-
-    const trimmedName = nameDraft.trim().slice(0, 60);
-
-    if (trimmedName.length < 2) {
-      setNameMessage("Bitte mindestens 2 Zeichen eingeben.");
-      return;
-    }
-
-    const { error } = await supabase.from("user_profiles").upsert({
-      user_id: user.id,
-      email: user.email,
-      display_name: trimmedName,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (error) {
-      setNameMessage("Fehler: " + error.message);
-    } else {
-      setDisplayName(trimmedName);
-      setNameMessage("Name gespeichert.");
-    }
-  }
-
-  async function savePassword() {
-    if (!supabase || !user) return;
-
-    setPasswordMessage("");
-
-    if (newPassword.length < 6) {
-      setPasswordMessage("Das Passwort muss mindestens 6 Zeichen haben.");
-      return;
-    }
-
-    if (newPassword !== repeatPassword) {
-      setPasswordMessage("Die Passwoerter stimmen nicht ueberein.");
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
-    if (error) {
-      setPasswordMessage("Fehler: " + error.message);
-    } else {
-      setNewPassword("");
-      setRepeatPassword("");
-      setPasswordMessage("Passwort wurde gespeichert.");
-    }
+    setAvatarId("star");
   }
 
   async function saveTaskToHistory(mode, savedAnswer) {
@@ -434,185 +380,62 @@ export default function Home() {
       >
         {user ? (
           <>
-            <p style={{ margin: "0 0 10px", fontSize: 14 }}>
-              Eingeloggt als: {isAdmin ? "Admin" : displayName || user.email}
-            </p>
-            {isAdmin ? (
-              <p style={{ margin: "0 0 10px", fontSize: 13, color: "#ccc" }}>
-                Admin-Name kann nicht geaendert werden.
-              </p>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  value={nameDraft}
-                  onChange={(e) => {
-                    setNameDraft(e.target.value);
-                    setNameMessage("");
-                  }}
-                  placeholder="Name oder Nickname"
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "1px solid #444",
-                    backgroundColor: "#111",
-                    color: "white",
-                    boxSizing: "border-box",
-                    marginBottom: 8,
-                  }}
-                />
-                <button
-                  onClick={saveDisplayName}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "none",
-                    backgroundColor: "#43a047",
-                    color: "white",
-                    fontWeight: "bold",
-                    marginBottom: 8,
-                  }}
-                >
-                  Name speichern
-                </button>
-                {nameMessage && (
-                  <p style={{ margin: "0 0 10px", fontSize: 13 }}>
-                    {nameMessage}
-                  </p>
-                )}
-              </>
-            )}
             <button
               onClick={() => {
-                setShowPasswordChange(!showPasswordChange);
-                setPasswordMessage("");
+                window.location.href = isAdmin ? "/admin" : "/profile";
               }}
               style={{
                 width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#fb8c00",
+                padding: "8px 10px",
+                borderRadius: "12px",
+                border: "1px solid #333",
+                backgroundColor: "#111",
                 color: "white",
-                fontWeight: "bold",
-                marginBottom: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                textAlign: "left",
               }}
             >
-              Passwort ändern
-            </button>
-            {showPasswordChange && (
-              <>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => {
-                    setNewPassword(e.target.value);
-                    setPasswordMessage("");
-                  }}
-                  placeholder="Neues Passwort"
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "1px solid #444",
-                    backgroundColor: "#111",
-                    color: "white",
-                    boxSizing: "border-box",
-                    marginBottom: 8,
-                  }}
-                />
-                <input
-                  type="password"
-                  value={repeatPassword}
-                  onChange={(e) => {
-                    setRepeatPassword(e.target.value);
-                    setPasswordMessage("");
-                  }}
-                  placeholder="Passwort wiederholen"
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "1px solid #444",
-                    backgroundColor: "#111",
-                    color: "white",
-                    boxSizing: "border-box",
-                    marginBottom: 8,
-                  }}
-                />
-                <button
-                  onClick={savePassword}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    borderRadius: "10px",
-                    border: "none",
-                    backgroundColor: "#43a047",
-                    color: "white",
-                    fontWeight: "bold",
-                    marginBottom: 8,
-                  }}
-                >
-                  Neues Passwort speichern
-                </button>
-              </>
-            )}
-            {passwordMessage && (
-              <p style={{ margin: "0 0 10px", fontSize: 13 }}>
-                {passwordMessage}
-              </p>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => {
-                  window.location.href = "/admin";
-                }}
+              <span
                 style={{
-                  width: "100%",
-                  padding: "10px",
-                  borderRadius: "10px",
-                  border: "none",
-                  backgroundColor: "#8e24aa",
-                  color: "white",
-                  fontWeight: "bold",
-                  marginBottom: 8,
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  backgroundColor: currentAvatar.background,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 19,
+                  flex: "0 0 auto",
                 }}
               >
-                Admin-Bereich
-              </button>
-            )}
-            <button
-              onClick={() => {
-                window.location.href = "/history";
-              }}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#1976d2",
-                color: "white",
-                fontWeight: "bold",
-                marginBottom: 8,
-              }}
-            >
-              Meine Aufgaben
-            </button>
-            <button
-              onClick={handleSignOut}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#444",
-                color: "white",
-                fontWeight: "bold",
-              }}
-            >
-              Abmelden
+                {currentAvatar.icon}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    color: "#aaa",
+                    marginBottom: 2,
+                  }}
+                >
+                  {isAdmin ? "Admin" : "Profil"}
+                </span>
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: 15,
+                    fontWeight: "bold",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isAdmin ? "Admin" : displayName || user.email}
+                </span>
+              </span>
             </button>
           </>
         ) : (
