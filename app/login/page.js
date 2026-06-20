@@ -7,6 +7,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [resetLoginId, setResetLoginId] = useState("");
+  const [showReset, setShowReset] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +50,33 @@ export default function LoginPage() {
         }
       } else {
         setMessage(data?.message || "Anfrage wurde verarbeitet.");
+      }
+    } catch (error) {
+      setMessage("Fehler: " + (error?.message || "Unbekannt"));
+    }
+
+    setLoading(false);
+  }
+
+  async function handlePasswordReset() {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const res = await fetch("/api/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          loginId: resetLoginId || email || displayName,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage("Fehler: " + (data?.error || "Unbekannt"));
+      } else {
+        setMessage(data?.message || "Reset-Link wurde gesendet.");
       }
     } catch (error) {
       setMessage("Fehler: " + (error?.message || "Unbekannt"));
@@ -139,6 +168,74 @@ export default function LoginPage() {
       >
         {loading ? "Bitte warten..." : "Einloggen"}
       </button>
+
+      <button
+        onClick={() => {
+          setShowReset(!showReset);
+          setMessage("");
+        }}
+        style={{
+          width: "100%",
+          padding: 12,
+          fontSize: 16,
+          fontWeight: "bold",
+          borderRadius: 12,
+          border: "1px solid #444",
+          backgroundColor: "#222",
+          color: "white",
+          marginTop: 12,
+        }}
+      >
+        Passwort vergessen?
+      </button>
+
+      {showReset && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: "#1b1b1b",
+            border: "1px solid #333",
+          }}
+        >
+          <p style={{ marginTop: 0 }}>
+            Gib deine E-Mail-Adresse oder deinen Namen ein. Du bekommst einen
+            Link, um ein neues Passwort zu erstellen.
+          </p>
+          <input
+            type="text"
+            placeholder="E-Mail oder Name"
+            value={resetLoginId}
+            onChange={(e) => setResetLoginId(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 14,
+              fontSize: 18,
+              borderRadius: 12,
+              border: "1px solid #444",
+              marginBottom: 12,
+              boxSizing: "border-box",
+            }}
+          />
+          <button
+            onClick={handlePasswordReset}
+            disabled={loading || !(resetLoginId || email || displayName)}
+            style={{
+              width: "100%",
+              padding: 14,
+              fontSize: 16,
+              fontWeight: "bold",
+              borderRadius: 12,
+              border: "none",
+              backgroundColor: "#43a047",
+              color: "white",
+            }}
+          >
+            Reset-Link senden
+          </button>
+        </div>
+      )}
 
       {message && <p style={{ marginTop: 20 }}>{message}</p>}
     </main>
