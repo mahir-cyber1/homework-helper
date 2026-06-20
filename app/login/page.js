@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "../../lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -13,13 +15,19 @@ export default function LoginPage() {
     setMessage("");
 
     try {
-      const res = await fetch("/api/request-login", {
+      if (!supabase) {
+        setMessage("Fehler: Supabase ist noch nicht konfiguriert.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await fetch("/api/password-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           displayName,
-          redirectTo: window.location.origin,
+          password,
         }),
       });
 
@@ -27,6 +35,17 @@ export default function LoginPage() {
 
       if (!res.ok) {
         setMessage("Fehler: " + (data?.error || "Unbekannt"));
+      } else if (data?.session) {
+        const { error } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+
+        if (error) {
+          setMessage("Fehler: " + error.message);
+        } else {
+          window.location.href = "/";
+        }
       } else {
         setMessage(data?.message || "Anfrage wurde verarbeitet.");
       }
@@ -52,8 +71,8 @@ export default function LoginPage() {
       <h1>Login</h1>
 
       <p>
-        Gib deinen Namen und deine E-Mail-Adresse ein. Freigegebene Nutzer
-        bekommen direkt einen Login-Link.
+        Gib deinen Namen, deine E-Mail-Adresse und dein Passwort ein.
+        Freigegebene Nutzer werden direkt eingeloggt.
       </p>
 
       <input
@@ -88,9 +107,25 @@ export default function LoginPage() {
         }}
       />
 
+      <input
+        type="password"
+        placeholder="Passwort"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 14,
+          fontSize: 18,
+          borderRadius: 12,
+          border: "1px solid #444",
+          marginBottom: 12,
+          boxSizing: "border-box",
+        }}
+      />
+
       <button
         onClick={handleLogin}
-        disabled={loading || !email || !displayName}
+        disabled={loading || !email || !displayName || password.length < 6}
         style={{
           width: "100%",
           padding: 16,
@@ -102,7 +137,7 @@ export default function LoginPage() {
           color: "white",
         }}
       >
-        {loading ? "Bitte warten..." : "Login-Link senden"}
+        {loading ? "Bitte warten..." : "Einloggen"}
       </button>
 
       {message && <p style={{ marginTop: 20 }}>{message}</p>}

@@ -132,7 +132,7 @@ export async function GET(req) {
     <h1>Freigegeben</h1>
     <p><strong>${safeName}</strong> darf sich jetzt einloggen.</p>
     <p>${safeEmail}</p>
-    <p>Die Person kann auf der Login-Seite erneut ihre E-Mail eingeben und bekommt dann den Magic Link.</p>
+    <p>Die Person kann sich jetzt auf der Login-Seite mit E-Mail und Passwort einloggen.</p>
     <a href="/">Zur App</a>
   `);
 }
