@@ -28,6 +28,17 @@ function getDisplayNameKey(displayName) {
   return normalizeDisplayName(displayName).toLowerCase();
 }
 
+function isMissingDisplayNameKeyError(error) {
+  const message = String(error?.message || "");
+
+  return (
+    message.includes("display_name_key") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("Could not find"))
+  );
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -130,22 +141,31 @@ async function createApprovalRequest({
     new URL(req.url).origin;
   const approvalUrl = `${origin}/api/approve-login?token=${token}`;
 
+  const requestPayload = {
+    email,
+    display_name: displayName,
+    display_name_key: displayNameKey,
+    token,
+    status: "pending",
+    requested_at: new Date().toISOString(),
+    approved_at: null,
+  };
+
   const { error: requestError } = await adminClient
     .from("login_access_requests")
-    .upsert(
-      {
-        email,
-        display_name: displayName,
-        display_name_key: displayNameKey,
-        token,
-        status: "pending",
-        requested_at: new Date().toISOString(),
-        approved_at: null,
-      },
-      { onConflict: "email" }
-    );
+    .upsert(requestPayload, { onConflict: "email" });
 
-  if (requestError) {
+  if (isMissingDisplayNameKeyError(requestError)) {
+    delete requestPayload.display_name_key;
+
+    const { error: fallbackError } = await adminClient
+      .from("login_access_requests")
+      .upsert(requestPayload, { onConflict: "email" });
+
+    if (fallbackError) {
+      return { error: fallbackError.message, status: 500 };
+    }
+  } else if (requestError) {
     return { error: requestError.message, status: 500 };
   }
 
