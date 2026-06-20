@@ -19,6 +19,10 @@ function isAdminEmail(email) {
   );
 }
 
+function getDisplayNameKey(displayName) {
+  return String(displayName || "").trim().toLowerCase();
+}
+
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -178,6 +182,7 @@ export async function POST(req) {
         {
           email: request.email,
           display_name: request.display_name,
+          display_name_key: getDisplayNameKey(request.display_name),
         },
         { onConflict: "email" }
       );

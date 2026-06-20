@@ -24,6 +24,10 @@ function normalizeDisplayName(displayName) {
   return String(displayName || "").trim().slice(0, 60);
 }
 
+function getDisplayNameKey(displayName) {
+  return normalizeDisplayName(displayName).toLowerCase();
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -118,6 +122,7 @@ async function createApprovalRequest({
   email,
   displayName,
 }) {
+  const displayNameKey = getDisplayNameKey(displayName);
   const token = randomBytes(32).toString("hex");
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -131,6 +136,7 @@ async function createApprovalRequest({
       {
         email,
         display_name: displayName,
+        display_name_key: displayNameKey,
         token,
         status: "pending",
         requested_at: new Date().toISOString(),
@@ -221,6 +227,40 @@ export async function POST(req) {
         );
       }
 
+      const displayNameKey = getDisplayNameKey(normalizedDisplayName);
+
+      const [{ data: profileMatch }, { data: approvedMatch }, { data: requestMatch }] =
+        await Promise.all([
+          adminClient
+            .from("user_profiles")
+            .select("user_id")
+            .eq("display_name_key", displayNameKey)
+            .neq("email", normalizedEmail)
+            .maybeSingle(),
+          adminClient
+            .from("approved_login_emails")
+            .select("email")
+            .eq("display_name_key", displayNameKey)
+            .neq("email", normalizedEmail)
+            .maybeSingle(),
+          adminClient
+            .from("login_access_requests")
+            .select("email")
+            .eq("display_name_key", displayNameKey)
+            .neq("email", normalizedEmail)
+            .maybeSingle(),
+        ]);
+
+      if (profileMatch || approvedMatch || requestMatch) {
+        return Response.json(
+          {
+            error:
+              "Dieser Name existiert bereits. Bitte waehle einen anderen Namen.",
+          },
+          { status: 409 }
+        );
+      }
+
       const result = await createApprovalRequest({
         adminClient,
         req,
@@ -240,6 +280,7 @@ export async function POST(req) {
         {
           email: normalizedEmail,
           display_name: finalDisplayName,
+          display_name_key: getDisplayNameKey(finalDisplayName),
         },
         { onConflict: "email" }
       );
@@ -289,6 +330,7 @@ export async function POST(req) {
       user_id: user.id,
       email: normalizedEmail,
       display_name: finalDisplayName,
+      display_name_key: getDisplayNameKey(finalDisplayName),
       updated_at: new Date().toISOString(),
     });
 

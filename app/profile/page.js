@@ -71,18 +71,29 @@ export default function ProfilePage() {
       return;
     }
 
-    const { error } = await supabase.from("user_profiles").upsert({
-      user_id: user.id,
-      email: user.email,
-      display_name: trimmedName,
-      avatar_id: avatarId,
-      updated_at: new Date().toISOString(),
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.access_token || ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        displayName: trimmedName,
+        avatarId,
+      }),
     });
 
-    if (error) {
-      setMessage("Fehler: " + error.message);
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMessage("Fehler: " + (data?.error || "Unbekannt"));
     } else {
-      setDisplayName(trimmedName);
+      setDisplayName(data.displayName);
+      setAvatarId(data.avatarId);
       setMessage("Profil wurde gespeichert.");
     }
   }

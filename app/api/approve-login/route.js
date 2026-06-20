@@ -25,6 +25,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function getDisplayNameKey(displayName) {
+  return String(displayName || "").trim().toLowerCase();
+}
+
 function html(body) {
   return new Response(
     `<!doctype html>
@@ -105,6 +109,7 @@ export async function GET(req) {
       {
         email: request.email,
         display_name: request.display_name,
+        display_name_key: getDisplayNameKey(request.display_name),
       },
       { onConflict: "email" }
     );

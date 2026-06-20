@@ -24,6 +24,10 @@ function normalizeDisplayName(displayName) {
   return String(displayName || "").trim().slice(0, 60);
 }
 
+function getDisplayNameKey(displayName) {
+  return normalizeDisplayName(displayName).toLowerCase();
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -160,6 +164,7 @@ export async function POST(req) {
         {
           email: normalizedEmail,
           display_name: normalizedDisplayName,
+          display_name_key: getDisplayNameKey(normalizedDisplayName),
         },
         { onConflict: "email" }
       );
@@ -199,6 +204,7 @@ export async function POST(req) {
         {
           email: normalizedEmail,
           display_name: normalizedDisplayName,
+          display_name_key: getDisplayNameKey(normalizedDisplayName),
           token,
           status: "pending",
           requested_at: new Date().toISOString(),
