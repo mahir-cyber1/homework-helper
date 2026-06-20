@@ -31,6 +31,17 @@ function isMissingDisplayNameKeyError(error) {
   );
 }
 
+function isMissingAvatarIdError(error) {
+  const message = String(error?.message || "");
+
+  return (
+    message.includes("avatar_id") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("Could not find"))
+  );
+}
+
 async function findNameMatch(client, table, displayNameKey, currentUser) {
   const { data, error } = await client
     .from(table)
@@ -183,9 +194,16 @@ export async function POST(req) {
   });
 
   if (error) {
-    const message = error.message?.includes("duplicate")
-      ? "Dieser Name existiert bereits. Bitte waehle einen anderen Namen."
-      : error.message;
+    let message = error.message;
+
+    if (error.message?.includes("duplicate")) {
+      message = "Dieser Name existiert bereits. Bitte waehle einen anderen Namen.";
+    }
+
+    if (isMissingAvatarIdError(error)) {
+      message =
+        "Profilbild kann noch nicht gespeichert werden, weil in Supabase die Spalte avatar_id fehlt. Bitte die Profil-Reparatur-SQL ausfuehren.";
+    }
 
     return Response.json({ error: message }, { status: 500 });
   }
