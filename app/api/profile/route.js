@@ -20,6 +20,76 @@ function getDisplayNameKey(displayName) {
   return String(displayName || "").trim().toLowerCase();
 }
 
+function isMissingDisplayNameKeyError(error) {
+  const message = String(error?.message || "");
+
+  return (
+    message.includes("display_name_key") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("Could not find"))
+  );
+}
+
+async function findNameMatch(client, table, displayNameKey, currentUser) {
+  const { data, error } = await client
+    .from(table)
+    .select(table === "user_profiles" ? "user_id,email" : "email")
+    .eq("display_name_key", displayNameKey)
+    .maybeSingle();
+
+  if (isMissingDisplayNameKeyError(error)) {
+    return null;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) return null;
+
+  if (table === "user_profiles") {
+    return data.user_id === currentUser.id ? null : data;
+  }
+
+  return data.email === currentUser.email ? null : data;
+}
+
+async function upsertProfile(client, payload) {
+  const { error } = await client
+    .from("user_profiles")
+    .upsert(payload, { onConflict: "user_id" });
+
+  if (!isMissingDisplayNameKeyError(error)) {
+    return error;
+  }
+
+  const fallbackPayload = { ...payload };
+  delete fallbackPayload.display_name_key;
+
+  const { error: fallbackError } = await client
+    .from("user_profiles")
+    .upsert(fallbackPayload, { onConflict: "user_id" });
+
+  return fallbackError;
+}
+
+async function updateStoredDisplayName(client, table, email, displayName, displayNameKey) {
+  const payload = {
+    display_name: displayName,
+    display_name_key: displayNameKey,
+  };
+
+  const { error } = await client.from(table).update(payload).eq("email", email);
+
+  if (!isMissingDisplayNameKeyError(error)) {
+    return;
+  }
+
+  delete payload.display_name_key;
+  await client.from(table).update(payload).eq("email", email);
+}
+
 async function getUser(req, adminClient) {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.startsWith("Bearer ")
@@ -69,27 +139,29 @@ export async function POST(req) {
     );
   }
 
-  const [{ data: profileMatch }, { data: approvedMatch }, { data: requestMatch }] =
-    await Promise.all([
-      adminClient
-        .from("user_profiles")
-        .select("user_id")
-        .eq("display_name_key", displayNameKey)
-        .neq("user_id", auth.user.id)
-        .maybeSingle(),
-      adminClient
-        .from("approved_login_emails")
-        .select("email")
-        .eq("display_name_key", displayNameKey)
-        .neq("email", auth.user.email)
-        .maybeSingle(),
-      adminClient
-        .from("login_access_requests")
-        .select("email")
-        .eq("display_name_key", displayNameKey)
-        .neq("email", auth.user.email)
-        .maybeSingle(),
+  let profileMatch = null;
+  let approvedMatch = null;
+  let requestMatch = null;
+
+  try {
+    [profileMatch, approvedMatch, requestMatch] = await Promise.all([
+      findNameMatch(adminClient, "user_profiles", displayNameKey, auth.user),
+      findNameMatch(
+        adminClient,
+        "approved_login_emails",
+        displayNameKey,
+        auth.user
+      ),
+      findNameMatch(
+        adminClient,
+        "login_access_requests",
+        displayNameKey,
+        auth.user
+      ),
     ]);
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 
   if (profileMatch || approvedMatch || requestMatch) {
     return Response.json(
@@ -101,7 +173,7 @@ export async function POST(req) {
     );
   }
 
-  const { error } = await adminClient.from("user_profiles").upsert({
+  const error = await upsertProfile(adminClient, {
     user_id: auth.user.id,
     email: auth.user.email,
     display_name: trimmedName,
@@ -117,6 +189,23 @@ export async function POST(req) {
 
     return Response.json({ error: message }, { status: 500 });
   }
+
+  await Promise.all([
+    updateStoredDisplayName(
+      adminClient,
+      "approved_login_emails",
+      auth.user.email,
+      trimmedName,
+      displayNameKey
+    ),
+    updateStoredDisplayName(
+      adminClient,
+      "login_access_requests",
+      auth.user.email,
+      trimmedName,
+      displayNameKey
+    ),
+  ]);
 
   return Response.json({
     displayName: trimmedName,

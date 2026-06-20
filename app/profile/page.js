@@ -114,6 +114,7 @@ export default function ProfilePage() {
       setMessage("Fehler: " + (data?.error || "Unbekannt"));
     } else {
       setDisplayName(data.displayName);
+      setNameDraft(data.displayName);
       setAvatarId(data.avatarId);
       setMessage("Profil wurde gespeichert.");
     }
