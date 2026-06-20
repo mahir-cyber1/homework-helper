@@ -66,6 +66,188 @@ const overlayBoxStyle = {
   minWidth: "200px",
 };
 
+const defaultScannerCorners = [
+  { x: 0.08, y: 0.08 },
+  { x: 0.92, y: 0.08 },
+  { x: 0.92, y: 0.92 },
+  { x: 0.08, y: 0.92 },
+];
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function getScannerPointFromEvent(event, rect) {
+  const pointer = event.touches?.[0] || event;
+
+  return {
+    x: clamp((pointer.clientX - rect.left) / rect.width, 0, 1),
+    y: clamp((pointer.clientY - rect.top) / rect.height, 0, 1),
+  };
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function detectDocumentCorners(dataUrl) {
+  const img = await loadImage(dataUrl);
+  const maxScanSize = 700;
+  const scale = Math.min(1, maxScanSize / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return defaultScannerCorners;
+
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const { data, width, height } = ctx.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+  const rowHits = new Array(height).fill(0);
+  const colHits = new Array(width).fill(0);
+  const borderSamples = [];
+  const border = Math.max(4, Math.round(Math.min(width, height) * 0.04));
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (x > border && x < width - border && y > border && y < height - border) {
+        continue;
+      }
+
+      const index = (y * width + x) * 4;
+      borderSamples.push((data[index] + data[index + 1] + data[index + 2]) / 3);
+    }
+  }
+
+  const borderAverage =
+    borderSamples.reduce((sum, value) => sum + value, 0) / borderSamples.length;
+  const lightThreshold = clamp(borderAverage + 25, 145, 230);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      const luma = (r + g + b) / 3;
+      const contrast = Math.abs(luma - borderAverage);
+      const isPaperLike = luma > lightThreshold || (luma > 125 && contrast > 35);
+
+      if (isPaperLike) {
+        rowHits[y] += 1;
+        colHits[x] += 1;
+      }
+    }
+  }
+
+  const minRowHits = width * 0.12;
+  const minColHits = height * 0.12;
+  const top = rowHits.findIndex((hits) => hits >= minRowHits);
+  const bottom =
+    height - 1 - [...rowHits].reverse().findIndex((hits) => hits >= minRowHits);
+  const left = colHits.findIndex((hits) => hits >= minColHits);
+  const right =
+    width - 1 - [...colHits].reverse().findIndex((hits) => hits >= minColHits);
+
+  if (top < 0 || left < 0 || bottom <= top || right <= left) {
+    return defaultScannerCorners;
+  }
+
+  const paddingX = width * 0.015;
+  const paddingY = height * 0.015;
+
+  return [
+    { x: clamp((left - paddingX) / width, 0.02, 0.98), y: clamp((top - paddingY) / height, 0.02, 0.98) },
+    { x: clamp((right + paddingX) / width, 0.02, 0.98), y: clamp((top - paddingY) / height, 0.02, 0.98) },
+    { x: clamp((right + paddingX) / width, 0.02, 0.98), y: clamp((bottom + paddingY) / height, 0.02, 0.98) },
+    { x: clamp((left - paddingX) / width, 0.02, 0.98), y: clamp((bottom + paddingY) / height, 0.02, 0.98) },
+  ];
+}
+
+async function createScannedImage(dataUrl, corners) {
+  const img = await loadImage(dataUrl);
+  const sourceCanvas = document.createElement("canvas");
+  sourceCanvas.width = img.width;
+  sourceCanvas.height = img.height;
+
+  const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+  if (!sourceCtx) return dataUrl;
+
+  sourceCtx.drawImage(img, 0, 0);
+
+  const points = corners.map((corner) => ({
+    x: corner.x * img.width,
+    y: corner.y * img.height,
+  }));
+  const [topLeft, topRight, bottomRight, bottomLeft] = points;
+  const outputWidth = Math.round(
+    Math.min(
+      1600,
+      Math.max(distance(topLeft, topRight), distance(bottomLeft, bottomRight))
+    )
+  );
+  const outputHeight = Math.round(
+    Math.min(
+      2200,
+      Math.max(distance(topLeft, bottomLeft), distance(topRight, bottomRight))
+    )
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, outputWidth);
+  canvas.height = Math.max(1, outputHeight);
+
+  const sourceImage = sourceCtx.getImageData(0, 0, img.width, img.height);
+  const outputCtx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!outputCtx) return dataUrl;
+
+  const outputImage = outputCtx.createImageData(canvas.width, canvas.height);
+
+  for (let y = 0; y < canvas.height; y += 1) {
+    const v = canvas.height === 1 ? 0 : y / (canvas.height - 1);
+
+    for (let x = 0; x < canvas.width; x += 1) {
+      const u = canvas.width === 1 ? 0 : x / (canvas.width - 1);
+      const sx =
+        (1 - u) * (1 - v) * topLeft.x +
+        u * (1 - v) * topRight.x +
+        u * v * bottomRight.x +
+        (1 - u) * v * bottomLeft.x;
+      const sy =
+        (1 - u) * (1 - v) * topLeft.y +
+        u * (1 - v) * topRight.y +
+        u * v * bottomRight.y +
+        (1 - u) * v * bottomLeft.y;
+      const sourceX = clamp(Math.round(sx), 0, img.width - 1);
+      const sourceY = clamp(Math.round(sy), 0, img.height - 1);
+      const sourceIndex = (sourceY * img.width + sourceX) * 4;
+      const outputIndex = (y * canvas.width + x) * 4;
+
+      outputImage.data[outputIndex] = sourceImage.data[sourceIndex];
+      outputImage.data[outputIndex + 1] = sourceImage.data[sourceIndex + 1];
+      outputImage.data[outputIndex + 2] = sourceImage.data[sourceIndex + 2];
+      outputImage.data[outputIndex + 3] = 255;
+    }
+  }
+
+  outputCtx.putImageData(outputImage, 0, 0);
+  return canvas.toDataURL("image/jpeg", 0.88);
+}
+
 export default function Home() {
   const [task, setTask] = useState("");
   const [answer, setAnswer] = useState("");
@@ -84,6 +266,11 @@ export default function Home() {
   const [avatarId, setAvatarId] = useState("star");
   const [gameStats, setGameStats] = useState(null);
   const [pointsMessage, setPointsMessage] = useState("");
+  const [scannerImage, setScannerImage] = useState(null);
+  const [scannerFileName, setScannerFileName] = useState("");
+  const [scannerCorners, setScannerCorners] = useState(defaultScannerCorners);
+  const [activeScannerCorner, setActiveScannerCorner] = useState(null);
+  const [scannerProcessing, setScannerProcessing] = useState(false);
 
   const translations = {
     de: {
@@ -283,6 +470,78 @@ export default function Home() {
     }
   }
 
+  function resetScanner() {
+    setScannerImage(null);
+    setScannerFileName("");
+    setScannerCorners(defaultScannerCorners);
+    setActiveScannerCorner(null);
+    setScannerProcessing(false);
+  }
+
+  async function openScanner(dataUrl, selectedFileName) {
+    setScannerImage(dataUrl);
+    setScannerFileName(selectedFileName);
+    setScannerCorners(defaultScannerCorners);
+    setScannerProcessing(true);
+
+    try {
+      const detectedCorners = await detectDocumentCorners(dataUrl);
+      setScannerCorners(detectedCorners);
+    } catch (error) {
+      console.error("Scanner detection error:", error);
+      setScannerCorners(defaultScannerCorners);
+    } finally {
+      setScannerProcessing(false);
+    }
+  }
+
+  function handleScannerMove(event) {
+    if (activeScannerCorner === null) return;
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const point = getScannerPointFromEvent(event, rect);
+
+    setScannerCorners((currentCorners) =>
+      currentCorners.map((corner, index) =>
+        index === activeScannerCorner ? point : corner
+      )
+    );
+  }
+
+  function handleScannerEnd() {
+    setActiveScannerCorner(null);
+  }
+
+  function useOriginalScanImage() {
+    if (!scannerImage) return;
+
+    setImageData(scannerImage);
+    setFileData(null);
+    setFileName(scannerFileName);
+    setFileMime("image/jpeg");
+    resetScanner();
+  }
+
+  async function acceptScannedImage() {
+    if (!scannerImage) return;
+
+    setScannerProcessing(true);
+
+    try {
+      const scannedImage = await createScannedImage(scannerImage, scannerCorners);
+      setImageData(scannedImage);
+      setFileData(null);
+      setFileName(scannerFileName);
+      setFileMime("image/jpeg");
+      resetScanner();
+    } catch (error) {
+      console.error("Scanner crop error:", error);
+      setAnswer("FEHLER: Scan konnte nicht verarbeitet werden.");
+      setScannerProcessing(false);
+    }
+  }
+
   async function explainTask(selectedMode) {
     if (!authReady) return;
 
@@ -368,6 +627,7 @@ export default function Home() {
   function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
 
     setImageData(null);
     setFileData(null);
@@ -407,7 +667,7 @@ export default function Home() {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
           const compressed = canvas.toDataURL("image/jpeg", 0.8);
-          setImageData(compressed);
+          openScanner(compressed, file.name);
         };
 
         img.src = event.target.result;
@@ -550,6 +810,202 @@ export default function Home() {
           <div style={overlayBoxStyle}>
             <div style={{ fontSize: 50, marginBottom: 10 }}>⏳</div>
             <p>{t.loadingText}</p>
+          </div>
+        </div>
+      )}
+
+      {scannerImage && (
+        <div
+          className="no-print"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            backgroundColor: "rgba(0,0,0,0.92)",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 14,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 430,
+              maxHeight: "96vh",
+              overflow: "auto",
+              backgroundColor: "#151515",
+              border: "1px solid #333",
+              borderRadius: 16,
+              padding: 14,
+              boxSizing: "border-box",
+            }}
+          >
+            <h2 style={{ margin: "0 0 8px", fontSize: 22 }}>
+              Seite scannen
+            </h2>
+            <p style={{ margin: "0 0 12px", color: "#ddd", fontSize: 14 }}>
+              Ziehe die vier Punkte an die Ecken der Seite.
+            </p>
+
+            <div
+              role="presentation"
+              onMouseMove={handleScannerMove}
+              onMouseUp={handleScannerEnd}
+              onMouseLeave={handleScannerEnd}
+              onTouchMove={handleScannerMove}
+              onTouchEnd={handleScannerEnd}
+              style={{
+                position: "relative",
+                width: "100%",
+                borderRadius: 12,
+                overflow: "hidden",
+                backgroundColor: "#050505",
+                touchAction: "none",
+                userSelect: "none",
+              }}
+            >
+              <img
+                src={scannerImage}
+                alt="Scan Vorschau"
+                draggable={false}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  maxHeight: "58vh",
+                  objectFit: "contain",
+                }}
+              />
+
+              <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                }}
+              >
+                <polygon
+                  points={scannerCorners
+                    .map((corner) => `${corner.x * 100},${corner.y * 100}`)
+                    .join(" ")}
+                  fill="rgba(67, 160, 71, 0.18)"
+                  stroke="#43a047"
+                  strokeWidth="0.8"
+                />
+              </svg>
+
+              {scannerCorners.map((corner, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  aria-label={`Scan-Ecke ${index + 1}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    setActiveScannerCorner(index);
+                  }}
+                  onTouchStart={(event) => {
+                    event.preventDefault();
+                    setActiveScannerCorner(index);
+                  }}
+                  style={{
+                    position: "absolute",
+                    left: `${corner.x * 100}%`,
+                    top: `${corner.y * 100}%`,
+                    width: 34,
+                    height: 34,
+                    transform: "translate(-50%, -50%)",
+                    borderRadius: "50%",
+                    border: "3px solid white",
+                    backgroundColor: "#43a047",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.55)",
+                    cursor: "grab",
+                  }}
+                />
+              ))}
+
+              {scannerProcessing && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundColor: "rgba(0,0,0,0.55)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Kanten werden erkannt...
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr",
+                gap: 10,
+                marginTop: 12,
+              }}
+            >
+              <button
+                onClick={acceptScannedImage}
+                disabled={scannerProcessing}
+                style={{
+                  padding: "14px",
+                  borderRadius: 12,
+                  border: "none",
+                  backgroundColor: "#43a047",
+                  color: "white",
+                  fontWeight: "bold",
+                  fontSize: 16,
+                  opacity: scannerProcessing ? 0.7 : 1,
+                }}
+              >
+                Scan übernehmen
+              </button>
+
+              <button
+                onClick={useOriginalScanImage}
+                disabled={scannerProcessing}
+                style={{
+                  padding: "12px",
+                  borderRadius: 12,
+                  border: "1px solid #444",
+                  backgroundColor: "#222",
+                  color: "white",
+                  fontWeight: "bold",
+                  opacity: scannerProcessing ? 0.7 : 1,
+                }}
+              >
+                Original verwenden
+              </button>
+
+              <button
+                onClick={() => {
+                  setImageData(null);
+                  setFileData(null);
+                  setFileName("");
+                  setFileMime("");
+                  resetScanner();
+                }}
+                style={{
+                  padding: "12px",
+                  borderRadius: 12,
+                  border: "1px solid #444",
+                  backgroundColor: "#111",
+                  color: "#ddd",
+                  fontWeight: "bold",
+                }}
+              >
+                Abbrechen
+              </button>
+            </div>
           </div>
         </div>
       )}
