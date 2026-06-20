@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
+const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
 const printStyles = `
 @media print {
@@ -149,6 +150,9 @@ export default function Home() {
   };
 
   const t = translations[language];
+  const isAdmin = user
+    ? ADMIN_EMAILS.includes(String(user.email || "").trim().toLowerCase())
+    : false;
 
   async function loadProfile(currentUser) {
     if (!supabase || !currentUser) return;
@@ -431,46 +435,54 @@ export default function Home() {
         {user ? (
           <>
             <p style={{ margin: "0 0 10px", fontSize: 14 }}>
-              Eingeloggt als: {displayName || user.email}
+              Eingeloggt als: {isAdmin ? "Admin" : displayName || user.email}
             </p>
-            <input
-              type="text"
-              value={nameDraft}
-              onChange={(e) => {
-                setNameDraft(e.target.value);
-                setNameMessage("");
-              }}
-              placeholder="Name oder Nickname"
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "1px solid #444",
-                backgroundColor: "#111",
-                color: "white",
-                boxSizing: "border-box",
-                marginBottom: 8,
-              }}
-            />
-            <button
-              onClick={saveDisplayName}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#43a047",
-                color: "white",
-                fontWeight: "bold",
-                marginBottom: 8,
-              }}
-            >
-              Name speichern
-            </button>
-            {nameMessage && (
-              <p style={{ margin: "0 0 10px", fontSize: 13 }}>
-                {nameMessage}
+            {isAdmin ? (
+              <p style={{ margin: "0 0 10px", fontSize: 13, color: "#ccc" }}>
+                Admin-Name kann nicht geaendert werden.
               </p>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={nameDraft}
+                  onChange={(e) => {
+                    setNameDraft(e.target.value);
+                    setNameMessage("");
+                  }}
+                  placeholder="Name oder Nickname"
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "1px solid #444",
+                    backgroundColor: "#111",
+                    color: "white",
+                    boxSizing: "border-box",
+                    marginBottom: 8,
+                  }}
+                />
+                <button
+                  onClick={saveDisplayName}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "none",
+                    backgroundColor: "#43a047",
+                    color: "white",
+                    fontWeight: "bold",
+                    marginBottom: 8,
+                  }}
+                >
+                  Name speichern
+                </button>
+                {nameMessage && (
+                  <p style={{ margin: "0 0 10px", fontSize: 13 }}>
+                    {nameMessage}
+                  </p>
+                )}
+              </>
             )}
             <button
               onClick={() => {
@@ -551,6 +563,25 @@ export default function Home() {
               <p style={{ margin: "0 0 10px", fontSize: 13 }}>
                 {passwordMessage}
               </p>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  window.location.href = "/admin";
+                }}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "10px",
+                  border: "none",
+                  backgroundColor: "#8e24aa",
+                  color: "white",
+                  fontWeight: "bold",
+                  marginBottom: 8,
+                }}
+              >
+                Admin-Bereich
+              </button>
             )}
             <button
               onClick={() => {

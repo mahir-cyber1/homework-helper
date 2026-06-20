@@ -53,7 +53,12 @@ async function getAdminUser(req, adminClient) {
   }
 
   if (!isAdminEmail(user.email)) {
-    return { error: "Nur der Admin darf diese Seite nutzen.", status: 403 };
+    return {
+      error: `Nur der Admin darf diese Seite nutzen. Erkannte E-Mail: ${
+        user.email || "unbekannt"
+      }`,
+      status: 403,
+    };
   }
 
   return { user };
