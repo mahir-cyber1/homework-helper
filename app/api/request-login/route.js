@@ -139,14 +139,28 @@ export async function POST(req) {
       return Response.json({ error: approvedError.message }, { status: 500 });
     }
 
-    if (approved) {
+    const adminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
+    const isAdminEmail = adminEmail && normalizedEmail === adminEmail;
+    const loginAllowed = approved || isAdminEmail;
+
+    if (isAdminEmail && !approved) {
+      await adminClient.from("approved_login_emails").upsert(
+        {
+          email: normalizedEmail,
+          display_name: normalizedDisplayName,
+        },
+        { onConflict: "email" }
+      );
+    }
+
+    if (loginAllowed) {
       const { error } = await publicClient.auth.signInWithOtp({
         email: normalizedEmail,
         options: {
           emailRedirectTo: redirectTo || process.env.NEXT_PUBLIC_SITE_URL,
           shouldCreateUser: true,
           data: {
-            display_name: approved.display_name || normalizedDisplayName,
+            display_name: approved?.display_name || normalizedDisplayName,
           },
         },
       });
