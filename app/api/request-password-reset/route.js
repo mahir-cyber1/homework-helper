@@ -145,7 +145,11 @@ export async function POST(req) {
     );
 
     if (error) {
-      return Response.json({ error: error.message }, { status: 500 });
+      const message = error.message?.toLowerCase().includes("rate limit")
+        ? "Zu viele E-Mails in kurzer Zeit. Bitte warte ein paar Minuten und versuche es dann erneut."
+        : error.message;
+
+      return Response.json({ error: message }, { status: 500 });
     }
 
     return Response.json({

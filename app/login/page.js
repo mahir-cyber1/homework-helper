@@ -74,7 +74,13 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage("Fehler: " + (data?.error || "Unbekannt"));
+        const errorMessage = data?.error || "Unbekannt";
+        setMessage(
+          "Fehler: " +
+            (errorMessage.toLowerCase().includes("rate limit")
+              ? "Zu viele E-Mails in kurzer Zeit. Bitte warte ein paar Minuten und versuche es dann erneut."
+              : errorMessage)
+        );
       } else {
         setMessage(data?.message || "Reset-Link wurde gesendet.");
       }
@@ -100,8 +106,8 @@ export default function LoginPage() {
       <h1>Login</h1>
 
       <p>
-        Gib deinen Namen, deine E-Mail-Adresse und dein Passwort ein.
-        Freigegebene Nutzer werden direkt eingeloggt.
+        Gib deine E-Mail-Adresse und dein Passwort ein. Den Namen brauchst du
+        nur bei der ersten Login-Anfrage.
       </p>
 
       <input
@@ -154,7 +160,7 @@ export default function LoginPage() {
 
       <button
         onClick={handleLogin}
-        disabled={loading || !email || !displayName || password.length < 6}
+        disabled={loading || !email || password.length < 6}
         style={{
           width: "100%",
           padding: 16,

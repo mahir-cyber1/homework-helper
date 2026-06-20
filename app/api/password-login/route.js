@@ -165,13 +165,6 @@ export async function POST(req) {
       );
     }
 
-    if (normalizedDisplayName.length < 2) {
-      return Response.json(
-        { error: "Bitte Name oder Nickname eingeben." },
-        { status: 400 }
-      );
-    }
-
     if (!password || password.length < 6) {
       return Response.json(
         { error: "Das Passwort muss mindestens 6 Zeichen haben." },
@@ -206,6 +199,16 @@ export async function POST(req) {
       approved?.display_name || normalizedDisplayName || normalizedEmail;
 
     if (!loginAllowed) {
+      if (normalizedDisplayName.length < 2) {
+        return Response.json(
+          {
+            error:
+              "Diese E-Mail ist noch nicht freigegeben. Bitte Name oder Nickname eingeben, damit der Admin dich erkennen kann.",
+          },
+          { status: 400 }
+        );
+      }
+
       const result = await createApprovalRequest({
         adminClient,
         req,
