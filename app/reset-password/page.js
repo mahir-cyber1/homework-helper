@@ -19,10 +19,18 @@ export default function ResetPasswordPage() {
       }
 
       const hash = new URLSearchParams(window.location.hash.slice(1));
+      const query = new URLSearchParams(window.location.search);
+      const code = query.get("code");
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
 
-      if (accessToken && refreshToken) {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+          setMessage("Fehler: " + error.message);
+        }
+      } else if (accessToken && refreshToken) {
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
