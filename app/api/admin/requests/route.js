@@ -2,8 +2,21 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+const EXTRA_ADMIN_EMAILS = ["genckurecikli@gmail.com"];
+
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function isAdminEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  const envAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
+
+  return (
+    normalizedEmail &&
+    (normalizedEmail === envAdminEmail ||
+      EXTRA_ADMIN_EMAILS.includes(normalizedEmail))
+  );
 }
 
 function getAdminClient() {
@@ -39,7 +52,7 @@ async function getAdminUser(req, adminClient) {
     return { error: "Session ist ungueltig.", status: 401 };
   }
 
-  if (normalizeEmail(user.email) !== normalizeEmail(process.env.ADMIN_EMAIL)) {
+  if (!isAdminEmail(user.email)) {
     return { error: "Nur der Admin darf diese Seite nutzen.", status: 403 };
   }
 

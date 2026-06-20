@@ -2,12 +2,25 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+const EXTRA_ADMIN_EMAILS = ["genckurecikli@gmail.com"];
+
 function normalizeInput(value) {
   return String(value || "").trim();
 }
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function isAdminEmailAddress(email) {
+  const normalizedEmail = normalizeEmail(email);
+  const envAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
+
+  return (
+    normalizedEmail &&
+    (normalizedEmail === envAdminEmail ||
+      EXTRA_ADMIN_EMAILS.includes(normalizedEmail))
+  );
 }
 
 function getAdminClient() {
@@ -122,8 +135,7 @@ export async function POST(req) {
       return Response.json({ error: approvedError.message }, { status: 500 });
     }
 
-    const adminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
-    const isAdminEmail = adminEmail && resolvedEmail === adminEmail;
+    const isAdminEmail = isAdminEmailAddress(resolvedEmail);
 
     if (!approved && !isAdminEmail) {
       return Response.json(
