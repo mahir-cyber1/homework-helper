@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { getLeague, leagues } from "../../lib/gamification";
@@ -125,8 +126,22 @@ export default function LeaguePage() {
               marginBottom: 14,
             }}
           >
-            <div style={{ fontSize: 64, lineHeight: 1 }}>
-              {currentLeague.icon}
+            <div
+              style={{
+                position: "relative",
+                width: 190,
+                height: 190,
+                margin: "0 auto",
+              }}
+            >
+              <Image
+                src={currentLeague.image}
+                alt={`${currentLeague.name} Pokal`}
+                fill
+                priority
+                sizes="190px"
+                style={{ objectFit: "contain" }}
+              />
             </div>
             <h2 style={{ margin: "10px 0 4px", fontSize: 24 }}>
               {currentLeague.name}
@@ -221,7 +236,24 @@ export default function LeaguePage() {
                     opacity: reached ? 1 : 0.58,
                   }}
                 >
-                  <span style={{ fontSize: 30 }}>{league.icon}</span>
+                  <span
+                    style={{
+                      position: "relative",
+                      width: 58,
+                      height: 58,
+                      flex: "0 0 auto",
+                      overflow: "hidden",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <Image
+                      src={league.image}
+                      alt={`${league.name} Pokal`}
+                      fill
+                      sizes="58px"
+                      style={{ objectFit: "contain" }}
+                    />
+                  </span>
                   <span style={{ flex: 1 }}>
                     <strong style={{ display: "block" }}>{league.name}</strong>
                     <span style={{ color: "#aaa", fontSize: 12 }}>
