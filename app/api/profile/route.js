@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { profileAvatars } from "../../../lib/profileAvatars";
 
 export const runtime = "nodejs";
 
@@ -67,22 +68,26 @@ async function findNameMatch(client, table, displayNameKey, currentUser) {
 }
 
 async function upsertProfile(client, payload) {
-  const { error } = await client
+  const { data, error } = await client
     .from("user_profiles")
-    .upsert(payload, { onConflict: "user_id" });
+    .upsert(payload, { onConflict: "user_id" })
+    .select("display_name,avatar_id")
+    .single();
 
   if (!isMissingDisplayNameKeyError(error)) {
-    return error;
+    return { data, error };
   }
 
   const fallbackPayload = { ...payload };
   delete fallbackPayload.display_name_key;
 
-  const { error: fallbackError } = await client
+  const { data: fallbackData, error: fallbackError } = await client
     .from("user_profiles")
-    .upsert(fallbackPayload, { onConflict: "user_id" });
+    .upsert(fallbackPayload, { onConflict: "user_id" })
+    .select("display_name,avatar_id")
+    .single();
 
-  return fallbackError;
+  return { data: fallbackData, error: fallbackError };
 }
 
 async function updateStoredDisplayName(client, table, email, displayName, displayNameKey) {
@@ -142,6 +147,11 @@ export async function POST(req) {
   const { displayName, avatarId } = await req.json();
   const trimmedName = String(displayName || "").trim().slice(0, 60);
   const displayNameKey = getDisplayNameKey(trimmedName);
+  const selectedAvatarId = profileAvatars.some(
+    (avatar) => avatar.id === avatarId
+  )
+    ? avatarId
+    : "star";
 
   if (trimmedName.length < 2) {
     return Response.json(
@@ -184,12 +194,12 @@ export async function POST(req) {
     );
   }
 
-  const error = await upsertProfile(adminClient, {
+  const { data: savedProfile, error } = await upsertProfile(adminClient, {
     user_id: auth.user.id,
     email: auth.user.email,
     display_name: trimmedName,
     display_name_key: displayNameKey,
-    avatar_id: avatarId || "star",
+    avatar_id: selectedAvatarId,
     updated_at: new Date().toISOString(),
   });
 
@@ -207,6 +217,24 @@ export async function POST(req) {
 
     return Response.json({ error: message }, { status: 500 });
   }
+
+  if (
+    savedProfile?.display_name !== trimmedName ||
+    savedProfile?.avatar_id !== selectedAvatarId
+  ) {
+    return Response.json(
+      { error: "Das Profil konnte nicht vollstaendig gespeichert werden." },
+      { status: 500 }
+    );
+  }
+
+  await adminClient.auth.admin.updateUserById(auth.user.id, {
+    user_metadata: {
+      ...auth.user.user_metadata,
+      display_name: trimmedName,
+      avatar_id: selectedAvatarId,
+    },
+  });
 
   await Promise.all([
     updateStoredDisplayName(
@@ -226,7 +254,7 @@ export async function POST(req) {
   ]);
 
   return Response.json({
-    displayName: trimmedName,
-    avatarId: avatarId || "star",
+    displayName: savedProfile.display_name,
+    avatarId: savedProfile.avatar_id,
   });
 }

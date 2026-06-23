@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [gameStats, setGameStats] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [message, setMessage] = useState(
     supabase ? "" : "Supabase ist nicht konfiguriert."
   );
@@ -83,7 +84,7 @@ export default function ProfilePage() {
   }, [isAdmin]);
 
   async function saveProfile() {
-    if (!supabase || !user || isAdmin) return;
+    if (!supabase || !user || isAdmin || savingProfile) return;
 
     const trimmedName = nameDraft.trim().slice(0, 60);
 
@@ -92,31 +93,41 @@ export default function ProfilePage() {
       return;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    setSavingProfile(true);
+    setMessage("Profil wird gespeichert...");
 
-    const res = await fetch("/api/profile", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session?.access_token || ""}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        displayName: trimmedName,
-        avatarId,
-      }),
-    });
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    const data = await res.json();
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session?.access_token || ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          displayName: trimmedName,
+          avatarId,
+        }),
+      });
 
-    if (!res.ok) {
-      setMessage("Fehler: " + (data?.error || "Unbekannt"));
-    } else {
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage("Fehler: " + (data?.error || "Unbekannt"));
+        return;
+      }
+
       setDisplayName(data.displayName);
       setNameDraft(data.displayName);
       setAvatarId(data.avatarId);
-      setMessage("Profil wurde gespeichert.");
+      window.location.href = "/";
+    } catch {
+      setMessage("Fehler: Das Profil konnte nicht gespeichert werden.");
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -367,6 +378,7 @@ export default function ProfilePage() {
 
               <button
                 onClick={saveProfile}
+                disabled={savingProfile}
                 style={{
                   width: "100%",
                   padding: 12,
@@ -375,9 +387,10 @@ export default function ProfilePage() {
                   backgroundColor: "#43a047",
                   color: "white",
                   fontWeight: "bold",
+                  opacity: savingProfile ? 0.65 : 1,
                 }}
               >
-                Profil speichern
+                {savingProfile ? "Wird gespeichert..." : "Profil speichern"}
               </button>
             </section>
           )}
