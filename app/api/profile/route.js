@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import { profileAvatars } from "../../../lib/profileAvatars";
+import {
+  profileAvatars,
+  profileFrames,
+  profileThemes,
+} from "../../../lib/profileAvatars";
 
 export const runtime = "nodejs";
 
@@ -54,6 +58,14 @@ function isMissingGradeLevelError(error) {
   );
 }
 
+function isMissingFrameIdError(error) {
+  return String(error?.message || "").includes("frame_id");
+}
+
+function isMissingThemeIdError(error) {
+  return String(error?.message || "").includes("theme_id");
+}
+
 async function findNameMatch(client, table, displayNameKey, currentUser) {
   const { data, error } = await client
     .from(table)
@@ -82,12 +94,16 @@ async function upsertProfile(client, payload) {
   const fallbackPayload = { ...payload };
   let storesAvatarInProfile = true;
   let storesGradeInProfile = true;
+  let storesFrameInProfile = true;
+  let storesThemeInProfile = true;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     const fields = [
       "display_name",
       storesAvatarInProfile ? "avatar_id" : null,
       storesGradeInProfile ? "grade_level" : null,
+      storesFrameInProfile ? "frame_id" : null,
+      storesThemeInProfile ? "theme_id" : null,
     ]
       .filter(Boolean)
       .join(",");
@@ -103,6 +119,8 @@ async function upsertProfile(client, payload) {
         error: null,
         storesAvatarInProfile,
         storesGradeInProfile,
+        storesFrameInProfile,
+        storesThemeInProfile,
       };
     }
 
@@ -126,11 +144,25 @@ async function upsertProfile(client, payload) {
       continue;
     }
 
+    if (isMissingFrameIdError(error) && "frame_id" in fallbackPayload) {
+      delete fallbackPayload.frame_id;
+      storesFrameInProfile = false;
+      continue;
+    }
+
+    if (isMissingThemeIdError(error) && "theme_id" in fallbackPayload) {
+      delete fallbackPayload.theme_id;
+      storesThemeInProfile = false;
+      continue;
+    }
+
     return {
       data: null,
       error,
       storesAvatarInProfile,
       storesGradeInProfile,
+      storesFrameInProfile,
+      storesThemeInProfile,
     };
   }
 
@@ -139,6 +171,8 @@ async function upsertProfile(client, payload) {
     error: new Error("Das Profil konnte nicht gespeichert werden."),
     storesAvatarInProfile,
     storesGradeInProfile,
+    storesFrameInProfile,
+    storesThemeInProfile,
   };
 }
 
@@ -196,17 +230,32 @@ export async function POST(req) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  const { displayName, avatarId, gradeLevel } = await req.json();
+  const { displayName, avatarId, gradeLevel, frameId, themeId } =
+    await req.json();
   const trimmedName = String(displayName || "").trim().slice(0, 60);
   const displayNameKey = getDisplayNameKey(trimmedName);
-  const selectedAvatarId = profileAvatars.some(
-    (avatar) => avatar.id === avatarId
-  )
-    ? avatarId
-    : "star";
   const selectedGradeLevel = ["4", "5", "6"].includes(String(gradeLevel))
     ? String(gradeLevel)
     : "4";
+  const { data: pointData } = await adminClient
+    .from("user_points")
+    .select("points")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  const points = pointData?.points || 0;
+  const selectedAvatar =
+    profileAvatars.find((avatar) => avatar.id === avatarId) ||
+    profileAvatars[0];
+  const selectedFrame =
+    profileFrames.find((frame) => frame.id === frameId) || profileFrames[0];
+  const selectedTheme =
+    profileThemes.find((theme) => theme.id === themeId) || profileThemes[0];
+  const selectedAvatarId =
+    points >= selectedAvatar.unlockPoints ? selectedAvatar.id : "star";
+  const selectedFrameId =
+    points >= selectedFrame.unlockPoints ? selectedFrame.id : "none";
+  const selectedThemeId =
+    points >= selectedTheme.unlockPoints ? selectedTheme.id : "blue";
 
   if (trimmedName.length < 2) {
     return Response.json(
@@ -254,6 +303,8 @@ export async function POST(req) {
     error,
     storesAvatarInProfile,
     storesGradeInProfile,
+    storesFrameInProfile,
+    storesThemeInProfile,
   } = await upsertProfile(adminClient, {
     user_id: auth.user.id,
     email: auth.user.email,
@@ -261,6 +312,8 @@ export async function POST(req) {
     display_name_key: displayNameKey,
     avatar_id: selectedAvatarId,
     grade_level: selectedGradeLevel,
+    frame_id: selectedFrameId,
+    theme_id: selectedThemeId,
     updated_at: new Date().toISOString(),
   });
 
@@ -293,12 +346,17 @@ export async function POST(req) {
       display_name: trimmedName,
       avatar_id: selectedAvatarId,
       grade_level: selectedGradeLevel,
+      frame_id: selectedFrameId,
+      theme_id: selectedThemeId,
     },
   });
 
   if (
     metadataError &&
-    (!storesAvatarInProfile || !storesGradeInProfile)
+    (!storesAvatarInProfile ||
+      !storesGradeInProfile ||
+      !storesFrameInProfile ||
+      !storesThemeInProfile)
   ) {
     return Response.json(
       { error: "Das Profilbild konnte nicht gespeichert werden." },
@@ -327,5 +385,7 @@ export async function POST(req) {
     displayName: savedProfile.display_name,
     avatarId: selectedAvatarId,
     gradeLevel: selectedGradeLevel,
+    frameId: selectedFrameId,
+    themeId: selectedThemeId,
   });
 }

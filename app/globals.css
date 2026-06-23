@@ -184,7 +184,7 @@ button {
 }
 
 .app-bottom-nav__item.is-active {
-  color: #5ba4ff;
+  color: var(--app-accent, #5ba4ff);
   background: #192536;
 }
 

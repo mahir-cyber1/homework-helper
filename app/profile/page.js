@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { getLeague } from "../../lib/gamification";
-import { getProfileAvatar, profileAvatars } from "../../lib/profileAvatars";
+import {
+  getProfileAvatar,
+  getProfileFrame,
+  getProfileTheme,
+  profileAvatars,
+  profileFrames,
+  profileThemes,
+} from "../../lib/profileAvatars";
 
 const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
@@ -13,6 +20,8 @@ export default function ProfilePage() {
   const [nameDraft, setNameDraft] = useState("");
   const [avatarId, setAvatarId] = useState("star");
   const [gradeLevel, setGradeLevel] = useState("4");
+  const [frameId, setFrameId] = useState("none");
+  const [themeId, setThemeId] = useState("blue");
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [gameStats, setGameStats] = useState(null);
@@ -26,7 +35,10 @@ export default function ProfilePage() {
     ? ADMIN_EMAILS.includes(String(user.email || "").trim().toLowerCase())
     : false;
   const currentAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
+  const currentFrame = getProfileFrame(frameId);
+  const currentTheme = getProfileTheme(themeId);
   const currentLeague = gameStats?.league || getLeague(0);
+  const points = gameStats?.points || 0;
 
   useEffect(() => {
     if (!supabase) {
@@ -95,6 +107,8 @@ export default function ProfilePage() {
           ? profileGradeLevel
           : "4"
       );
+      setFrameId(user.user_metadata?.frame_id || "none");
+      setThemeId(user.user_metadata?.theme_id || "blue");
 
       if (error) {
         setMessage("Profil konnte nicht vollständig geladen werden.");
@@ -151,6 +165,8 @@ export default function ProfilePage() {
           displayName: trimmedName,
           avatarId,
           gradeLevel,
+          frameId,
+          themeId,
         }),
       });
 
@@ -165,6 +181,8 @@ export default function ProfilePage() {
       setNameDraft(data.displayName);
       setAvatarId(data.avatarId);
       setGradeLevel(data.gradeLevel);
+      setFrameId(data.frameId);
+      setThemeId(data.themeId);
       await supabase.auth.refreshSession();
       window.location.replace("/");
     } catch {
@@ -289,6 +307,14 @@ export default function ProfilePage() {
                   height: 58,
                   borderRadius: "50%",
                   backgroundColor: currentAvatar.background,
+                  border:
+                    currentFrame.id === "none"
+                      ? "none"
+                      : `4px solid ${currentFrame.color}`,
+                  boxShadow:
+                    currentFrame.id === "cosmic"
+                      ? `0 0 16px ${currentFrame.color}`
+                      : "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -397,6 +423,7 @@ export default function ProfilePage() {
                 {profileAvatars.map((avatar) => (
                   <button
                     key={avatar.id}
+                    disabled={points < avatar.unlockPoints}
                     onClick={() => {
                       setAvatarId(avatar.id);
                       setMessage("");
@@ -412,11 +439,109 @@ export default function ProfilePage() {
                       backgroundColor: avatar.background,
                       color: "white",
                       fontSize: 26,
+                      opacity: points < avatar.unlockPoints ? 0.32 : 1,
+                      position: "relative",
                     }}
                   >
                     {avatar.icon}
+                    {points < avatar.unlockPoints && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          right: 2,
+                          bottom: 2,
+                          fontSize: 10,
+                          padding: "2px 3px",
+                          borderRadius: 4,
+                          background: "#111",
+                        }}
+                      >
+                        {avatar.unlockPoints}
+                      </span>
+                    )}
                   </button>
                 ))}
+              </div>
+
+              <p style={{ margin: "0 0 10px" }}>Profilrahmen</p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 8,
+                  marginBottom: 14,
+                }}
+              >
+                {profileFrames.map((frame) => {
+                  const locked = points < frame.unlockPoints;
+                  return (
+                    <button
+                      key={frame.id}
+                      disabled={locked}
+                      onClick={() => setFrameId(frame.id)}
+                      style={{
+                        minHeight: 58,
+                        padding: 6,
+                        borderRadius: 8,
+                        border:
+                          frameId === frame.id
+                            ? `3px solid ${currentTheme.color}`
+                            : "1px solid #444",
+                        background: "#151515",
+                        color: locked ? "#777" : "white",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "block",
+                          width: 28,
+                          height: 28,
+                          margin: "0 auto 4px",
+                          borderRadius: "50%",
+                          border:
+                            frame.id === "none"
+                              ? "1px dashed #666"
+                              : `4px solid ${frame.color}`,
+                        }}
+                      />
+                      <span style={{ fontSize: 11 }}>
+                        {locked ? `${frame.unlockPoints} Punkte` : frame.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p style={{ margin: "0 0 10px" }}>App-Farbe</p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5, 1fr)",
+                  gap: 8,
+                  marginBottom: 14,
+                }}
+              >
+                {profileThemes.map((theme) => {
+                  const locked = points < theme.unlockPoints;
+                  return (
+                    <button
+                      key={theme.id}
+                      disabled={locked}
+                      aria-label={`${theme.label}, ${theme.unlockPoints} Punkte`}
+                      onClick={() => setThemeId(theme.id)}
+                      style={{
+                        aspectRatio: "1",
+                        borderRadius: "50%",
+                        border:
+                          themeId === theme.id
+                            ? "3px solid white"
+                            : "1px solid #555",
+                        background: theme.color,
+                        opacity: locked ? 0.25 : 1,
+                      }}
+                    />
+                  );
+                })}
               </div>
 
               <label style={{ display: "block", marginBottom: 6 }}>

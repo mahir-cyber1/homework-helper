@@ -86,6 +86,24 @@ export default function HistoryPage() {
 
       <h1 style={{ fontSize: 28, marginTop: 0 }}>Meine Aufgaben</h1>
 
+      <button
+        onClick={() => {
+          window.location.href = "/training";
+        }}
+        style={{
+          width: "100%",
+          padding: 12,
+          borderRadius: 8,
+          border: "none",
+          backgroundColor: "#fb8c00",
+          color: "white",
+          fontWeight: "bold",
+          marginBottom: 14,
+        }}
+      >
+        Fehlertraining öffnen
+      </button>
+
       {loading && <p>Wird geladen...</p>}
 
       {!loading && !user && (

@@ -35,6 +35,8 @@ create table if not exists public.user_profiles (
   display_name_key text,
   avatar_id text not null default 'star',
   grade_level text not null default '4',
+  frame_id text not null default 'none',
+  theme_id text not null default 'blue',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -47,6 +49,12 @@ add column if not exists display_name_key text;
 
 alter table public.user_profiles
 add column if not exists grade_level text not null default '4';
+
+alter table public.user_profiles
+add column if not exists frame_id text not null default 'none';
+
+alter table public.user_profiles
+add column if not exists theme_id text not null default 'blue';
 
 update public.user_profiles
 set display_name_key = lower(trim(display_name))

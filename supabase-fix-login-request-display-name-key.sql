@@ -13,6 +13,12 @@ add column if not exists display_name_key text;
 alter table public.user_profiles
 add column if not exists grade_level text not null default '4';
 
+alter table public.user_profiles
+add column if not exists frame_id text not null default 'none';
+
+alter table public.user_profiles
+add column if not exists theme_id text not null default 'blue';
+
 update public.approved_login_emails
 set display_name_key = lower(trim(display_name))
 where display_name_key is null and display_name is not null;

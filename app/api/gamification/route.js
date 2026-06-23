@@ -66,6 +66,15 @@ function getCorrectTaskCount(answer) {
   return hasCorrectSignal && !text.includes("[unklar]") ? 1 : 0;
 }
 
+function getTotalTaskCount(answer, correctTaskCount) {
+  const markerMatch = String(answer || "").match(
+    /gesamte_aufgaben\s*:\s*(\d+)/i
+  );
+
+  if (markerMatch) return Number(markerMatch[1]);
+  return Math.max(correctTaskCount, 1);
+}
+
 async function getStats(adminClient, userId) {
   const { data } = await adminClient
     .from("user_points")
@@ -125,9 +134,13 @@ export async function POST(req) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  const { mode, answer, subject, grade } = await req.json();
+  const { mode, answer, subject, grade, task, language } = await req.json();
   const isCheck = mode === "check";
   const correctTaskCount = isCheck ? getCorrectTaskCount(answer) : 0;
+  const totalTaskCount = isCheck
+    ? getTotalTaskCount(answer, correctTaskCount)
+    : 0;
+  const hasIncorrectTasks = isCheck && correctTaskCount < totalTaskCount;
   const pointsAwarded = correctTaskCount;
 
   const currentStats = await getStats(adminClient, auth.user.id);
@@ -154,6 +167,20 @@ export async function POST(req) {
       subject: subject || null,
       grade: grade || null,
     });
+
+    if (hasIncorrectTasks) {
+      await adminClient.from("error_training").insert({
+        user_id: auth.user.id,
+        email: auth.user.email,
+        grade: grade || null,
+        language: language || "de",
+        original_task: task || null,
+        correction: String(answer || "")
+          .replace(/^\s*(RICHTIGE|GESAMTE)_AUFGABEN\s*:\s*\d+\s*$/gim, "")
+          .trim(),
+        correct_count: correctTaskCount,
+      });
+    }
   }
 
   const stats = await getStats(adminClient, auth.user.id);
@@ -161,6 +188,8 @@ export async function POST(req) {
   return Response.json({
     pointsAwarded,
     correctTaskCount,
+    totalTaskCount,
+    savedForTraining: hasIncorrectTasks,
     isCorrect: correctTaskCount > 0,
     stats,
   });

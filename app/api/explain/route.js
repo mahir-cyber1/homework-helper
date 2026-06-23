@@ -149,7 +149,11 @@ Wichtig:
 - Zaehle am Ende, wie viele einzelne Aufgaben komplett richtig geloest wurden.
 - Schreibe als allerletzte Zeile exakt:
 RICHTIGE_AUFGABEN: Zahl
-- Beispiel: RICHTIGE_AUFGABEN: 3
+- Schreibe direkt danach als zusätzliche letzte Zeile exakt:
+GESAMTE_AUFGABEN: Zahl
+- Beispiel:
+RICHTIGE_AUFGABEN: 3
+GESAMTE_AUFGABEN: 5
 - Wenn nichts sicher richtig ist oder alles unklar ist: RICHTIGE_AUFGABEN: 0
 `;
     } else {

@@ -351,6 +351,8 @@ export default function Home() {
   const [freeTaskUsed, setFreeTaskUsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [pointsMessage, setPointsMessage] = useState("");
+  const [trainingAvailable, setTrainingAvailable] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [scannerImage, setScannerImage] = useState(null);
   const [scannerFileName, setScannerFileName] = useState("");
   const [scannerCorners, setScannerCorners] = useState(defaultScannerCorners);
@@ -504,8 +506,34 @@ export default function Home() {
       setAuthReady(true);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.speechSynthesis?.cancel();
+    };
   }, []);
+
+  function toggleSpeech() {
+    if (!("speechSynthesis" in window)) {
+      setPointsMessage("Vorlesen wird von diesem Gerät nicht unterstützt.");
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(answer);
+    utterance.lang =
+      language === "tr" ? "tr-TR" : language === "en" ? "en-US" : "de-DE";
+    utterance.rate = 0.9;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+  }
 
   async function saveTaskToHistory(mode, savedAnswer) {
     if (!supabase || !user) return;
@@ -610,6 +638,7 @@ export default function Home() {
     setLoading(true);
     setAnswer("");
     setPointsMessage("");
+    setTrainingAvailable(false);
 
     try {
       const res = await fetch("/api/explain", {
@@ -635,7 +664,10 @@ export default function Home() {
       } else {
         const newAnswer = data?.answer || "Keine Antwort im Response.";
         const visibleAnswer = newAnswer
-          .replace(/^\s*RICHTIGE_AUFGABEN\s*:\s*\d+\s*$/gim, "")
+          .replace(
+            /^\s*(RICHTIGE|GESAMTE)_AUFGABEN\s*:\s*\d+\s*$/gim,
+            ""
+          )
           .trim();
         setAnswer(visibleAnswer || newAnswer);
 
@@ -655,15 +687,20 @@ export default function Home() {
                   answer: newAnswer,
                   subject: AUTOMATIC_SUBJECT,
                   grade,
+                  task: task || fileName || "Aufgabe aus Bild oder PDF",
+                  language,
                 }),
               });
 
               if (pointsRes.ok) {
                 const pointsData = await pointsRes.json();
+                setTrainingAvailable(Boolean(pointsData.savedForTraining));
                 setPointsMessage(
                   pointsData.pointsAwarded > 0
-                    ? `${pointsData.correctTaskCount} richtig geloest · +${pointsData.pointsAwarded} Punkte · ${pointsData.stats.league.name}`
-                    : "Geprueft. Fuer jede richtig geloeste Aufgabe gibt es 1 Punkt."
+                    ? `${pointsData.correctTaskCount} richtig gelöst · +${pointsData.pointsAwarded} Punkte · ${pointsData.stats.league.name}${pointsData.savedForTraining ? " · Fehlertraining aktualisiert" : ""}`
+                    : pointsData.savedForTraining
+                      ? "Fehler gespeichert. Im Fehlertraining kannst du ähnlich üben."
+                      : "Geprueft. Fuer jede richtig geloeste Aufgabe gibt es 1 Punkt."
                 );
               }
             }
@@ -1220,7 +1257,45 @@ export default function Home() {
               {pointsMessage}
             </p>
           )}
+          {trainingAvailable && (
+            <button
+              className="no-print"
+              onClick={() => {
+                window.location.href = "/training";
+              }}
+              style={{
+                width: "100%",
+                marginBottom: 14,
+                padding: 12,
+                border: 0,
+                borderRadius: 8,
+                backgroundColor: "#fb8c00",
+                color: "white",
+                fontWeight: "bold",
+              }}
+            >
+              Jetzt Fehler trainieren
+            </button>
+          )}
           <FormattedAnswer answer={answer} />
+
+          <button
+            className="no-print"
+            onClick={toggleSpeech}
+            style={{
+              width: "100%",
+              marginTop: 16,
+              padding: "12px 16px",
+              fontSize: 16,
+              border: "none",
+              borderRadius: 8,
+              backgroundColor: isSpeaking ? "#c62828" : "#1976d2",
+              color: "white",
+              fontWeight: "bold",
+            }}
+          >
+            {isSpeaking ? "Vorlesen stoppen" : "Antwort vorlesen"}
+          </button>
 
           <button
             className="no-print"

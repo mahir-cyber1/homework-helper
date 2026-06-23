@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import { getProfileAvatar } from "../../lib/profileAvatars";
+import {
+  getProfileAvatar,
+  getProfileFrame,
+  getProfileTheme,
+} from "../../lib/profileAvatars";
 
 const NAV_ITEMS = [
   { href: "/", label: "Start", icon: "⌂" },
@@ -15,6 +19,7 @@ const NAV_ITEMS = [
 const VISIBLE_PATHS = new Set([
   "/",
   "/history",
+  "/training",
   "/league",
   "/profile",
   "/admin",
@@ -25,6 +30,8 @@ export default function AppNavigation() {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [avatarId, setAvatarId] = useState("star");
+  const [frameId, setFrameId] = useState("none");
+  const [themeId, setThemeId] = useState("blue");
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -34,6 +41,8 @@ export default function AppNavigation() {
 
       if (!currentUser) {
         setAvatarId("star");
+        setFrameId("none");
+        setThemeId("blue");
         return;
       }
 
@@ -46,6 +55,8 @@ export default function AppNavigation() {
       setAvatarId(
         data?.avatar_id || currentUser.user_metadata?.avatar_id || "star"
       );
+      setFrameId(currentUser.user_metadata?.frame_id || "none");
+      setThemeId(currentUser.user_metadata?.theme_id || "blue");
     }
 
     supabase.auth.getUser().then(({ data }) => {
@@ -67,14 +78,21 @@ export default function AppNavigation() {
     String(user?.email || "").trim().toLowerCase()
   );
   const profileAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
+  const profileFrame = getProfileFrame(frameId);
+  const profileTheme = getProfileTheme(themeId);
 
   return (
-    <nav className="app-bottom-nav no-print" aria-label="App Navigation">
+    <nav
+      className="app-bottom-nav no-print"
+      aria-label="App Navigation"
+      style={{ "--app-accent": profileTheme.color }}
+    >
       {NAV_ITEMS.map((item) => {
         const href =
           item.href === "/profile" && isAdmin ? "/admin" : item.href;
         const isActive =
           pathname === href ||
+          (item.href === "/history" && pathname === "/training") ||
           (item.href === "/profile" && pathname === "/admin");
 
         return (
@@ -94,6 +112,10 @@ export default function AppNavigation() {
                     placeItems: "center",
                     borderRadius: "50%",
                     backgroundColor: profileAvatar.background,
+                    border:
+                      profileFrame.id === "none"
+                        ? "none"
+                        : `2px solid ${profileFrame.color}`,
                     fontSize: 15,
                   }}
                 >
