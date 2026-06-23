@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import AppNavigation from "./components/AppNavigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,8 +13,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Homework Helper",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://homework-helper-psi.vercel.app"
+  ),
+  title: "Hausaufgaben Hilfe",
   description: "KI Hausaufgaben Hilfe",
+  applicationName: "Hausaufgaben Hilfe",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Hausaufgaben",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 
   icons: {
     icon: "/icon2.png",
@@ -33,13 +48,20 @@ export const metadata = {
   },
 };
 
-
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#111318",
+};
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="de">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
+        <AppNavigation />
       </body>
     </html>
   );
