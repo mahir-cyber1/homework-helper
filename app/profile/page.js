@@ -12,6 +12,7 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [nameDraft, setNameDraft] = useState("");
   const [avatarId, setAvatarId] = useState("star");
+  const [gradeLevel, setGradeLevel] = useState("4");
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [gameStats, setGameStats] = useState(null);
@@ -49,16 +50,32 @@ export default function ProfilePage() {
 
       let { data, error } = await supabase
         .from("user_profiles")
-        .select("display_name,avatar_id")
+        .select("display_name,avatar_id,grade_level")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (error && String(error.message || "").includes("avatar_id")) {
-        const fallbackResult = await supabase
+      if (
+        error &&
+        (String(error.message || "").includes("avatar_id") ||
+          String(error.message || "").includes("grade_level"))
+      ) {
+        let fallbackResult = await supabase
           .from("user_profiles")
-          .select("display_name")
+          .select("display_name,avatar_id")
           .eq("user_id", user.id)
           .maybeSingle();
+
+        if (
+          fallbackResult.error &&
+          String(fallbackResult.error.message || "").includes("avatar_id")
+        ) {
+          fallbackResult = await supabase
+            .from("user_profiles")
+            .select("display_name")
+            .eq("user_id", user.id)
+            .maybeSingle();
+        }
+
         data = fallbackResult.data;
         error = fallbackResult.error;
       }
@@ -66,10 +83,18 @@ export default function ProfilePage() {
       const profileName = isAdmin ? "Admin" : data?.display_name || fallbackName;
       const profileAvatarId =
         data?.avatar_id || user.user_metadata?.avatar_id || "star";
+      const profileGradeLevel = String(
+        data?.grade_level || user.user_metadata?.grade_level || "4"
+      );
 
       setDisplayName(profileName);
       setNameDraft(profileName);
       setAvatarId(profileAvatarId);
+      setGradeLevel(
+        ["4", "5", "6"].includes(profileGradeLevel)
+          ? profileGradeLevel
+          : "4"
+      );
 
       if (error) {
         setMessage("Profil konnte nicht vollständig geladen werden.");
@@ -125,6 +150,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           displayName: trimmedName,
           avatarId,
+          gradeLevel,
         }),
       });
 
@@ -138,6 +164,7 @@ export default function ProfilePage() {
       setDisplayName(data.displayName);
       setNameDraft(data.displayName);
       setAvatarId(data.avatarId);
+      setGradeLevel(data.gradeLevel);
       await supabase.auth.refreshSession();
       window.location.replace("/");
     } catch {
@@ -391,6 +418,32 @@ export default function ProfilePage() {
                   </button>
                 ))}
               </div>
+
+              <label style={{ display: "block", marginBottom: 6 }}>
+                Meine Klasse
+              </label>
+              <select
+                value={gradeLevel}
+                onChange={(event) => {
+                  setGradeLevel(event.target.value);
+                  setMessage("");
+                }}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 10,
+                  border: "1px solid #444",
+                  backgroundColor: "#111",
+                  color: "white",
+                  boxSizing: "border-box",
+                  marginBottom: 14,
+                  fontSize: 16,
+                }}
+              >
+                <option value="4">4. Klasse</option>
+                <option value="5">5. Klasse</option>
+                <option value="6">6. Klasse</option>
+              </select>
 
               <button
                 onClick={saveProfile}

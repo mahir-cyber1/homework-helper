@@ -10,6 +10,9 @@ add column if not exists avatar_id text not null default 'star';
 alter table public.user_profiles
 add column if not exists display_name_key text;
 
+alter table public.user_profiles
+add column if not exists grade_level text not null default '4';
+
 update public.approved_login_emails
 set display_name_key = lower(trim(display_name))
 where display_name_key is null and display_name is not null;

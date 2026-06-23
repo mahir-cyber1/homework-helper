@@ -46,6 +46,109 @@ button {
   cursor: pointer;
 }
 
+.learning-answer {
+  display: grid;
+  gap: 14px;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+  line-height: 1.6;
+}
+
+.learning-answer__header {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e4e8ee;
+}
+
+.learning-answer__header > span {
+  color: #1976d2;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.learning-answer__header h3 {
+  margin: 3px 0;
+  color: #172033;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.learning-answer__header p {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.learning-answer__section {
+  padding: 16px;
+  border: 1px solid #d9dee7;
+  border-left: 5px solid #1976d2;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #172033;
+}
+
+.learning-answer__section h4 {
+  margin: 0 0 12px;
+  color: #0d47a1;
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.learning-answer__section > p {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.learning-answer__step {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  align-items: start;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.learning-answer__step > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #1976d2;
+  color: white;
+  font-weight: 800;
+}
+
+.learning-answer__step p,
+.learning-answer__example p,
+.learning-answer__label p {
+  margin: 2px 0 0;
+  font-size: 16px;
+}
+
+.learning-answer__example {
+  margin-top: 14px;
+  padding: 12px;
+  border-left: 4px solid #fb8c00;
+  border-radius: 6px;
+  background: #fff4e5;
+}
+
+.learning-answer__example strong {
+  color: #a54b00;
+}
+
+.learning-answer__label {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #eef2f7;
+}
+
+.learning-answer__label strong {
+  color: #26364d;
+}
+
 .app-bottom-nav {
   position: fixed;
   z-index: 9000;

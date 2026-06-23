@@ -4,6 +4,98 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
+const AUTOMATIC_SUBJECT = "Automatisch erkannt";
+
+function formatAnswerSections(answer) {
+  const lines = String(answer || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const sections = [];
+  let current = { title: "", lines: [] };
+
+  for (const line of lines) {
+    if (/^\d+\.\s+/.test(line)) {
+      if (current.title || current.lines.length) sections.push(current);
+      current = { title: line, lines: [] };
+    } else {
+      current.lines.push(line);
+    }
+  }
+
+  if (current.title || current.lines.length) sections.push(current);
+  return sections;
+}
+
+function FormattedAnswer({ answer }) {
+  const sections = formatAnswerSections(answer);
+
+  return (
+    <div className="learning-answer">
+      {sections.map((section, sectionIndex) => (
+        <article
+          className="learning-answer__section"
+          key={`${section.title}-${sectionIndex}`}
+        >
+          {section.title && <h4>{section.title}</h4>}
+          {section.lines.map((line, lineIndex) => {
+            const stepMatch = line.match(
+              /^(?:Schritt|Adım|Step)\s+(\d+)\s*:\s*(.*)$/i
+            );
+            const isExample = /^(?:Beispiel|Örnek|Example)\s*:/i.test(line);
+            const isLabel =
+              /^(Prüfung|Fehler|Richtige Lösung|Kontrol|Hata|Doğru çözüm|Check|Error|Correct solution)\s*:/i.test(
+                line
+              );
+
+            if (stepMatch) {
+              return (
+                <div
+                  className="learning-answer__step"
+                  key={`${line}-${lineIndex}`}
+                >
+                  <span>{stepMatch[1]}</span>
+                  <p>{stepMatch[2]}</p>
+                </div>
+              );
+            }
+
+            if (isExample) {
+              return (
+                <div
+                  className="learning-answer__example"
+                  key={`${line}-${lineIndex}`}
+                >
+                  <strong>
+                    {line.match(/^(Beispiel|Örnek|Example)/i)?.[1] || "Beispiel"}
+                  </strong>
+                  <p>
+                    {line.replace(/^(?:Beispiel|Örnek|Example)\s*:\s*/i, "")}
+                  </p>
+                </div>
+              );
+            }
+
+            if (isLabel) {
+              const [label, ...content] = line.split(":");
+              return (
+                <div
+                  className="learning-answer__label"
+                  key={`${line}-${lineIndex}`}
+                >
+                  <strong>{label}</strong>
+                  {content.join(":").trim() && <p>{content.join(":").trim()}</p>}
+                </div>
+              );
+            }
+
+            return <p key={`${line}-${lineIndex}`}>{line}</p>;
+          })}
+        </article>
+      ))}
+    </div>
+  );
+}
 
 const printStyles = `
 @media print {
@@ -255,7 +347,6 @@ export default function Home() {
   const [fileName, setFileName] = useState("");
   const [fileMime, setFileMime] = useState("");
   const [grade, setGrade] = useState("4");
-  const [subject, setSubject] = useState("Mathe");
   const [user, setUser] = useState(null);
   const [freeTaskUsed, setFreeTaskUsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -349,11 +440,26 @@ export default function Home() {
       currentUser.email?.split("@")[0] ||
       "";
 
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from("user_profiles")
-      .select("user_id")
+      .select("user_id,grade_level")
       .eq("user_id", currentUser.id)
       .maybeSingle();
+
+    if (error && String(error.message || "").includes("grade_level")) {
+      const fallbackResult = await supabase
+        .from("user_profiles")
+        .select("user_id")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
+
+    const savedGrade = String(
+      data?.grade_level || currentUser.user_metadata?.grade_level || "4"
+    );
+    setGrade(["4", "5", "6"].includes(savedGrade) ? savedGrade : "4");
 
     if (!data && fallbackName) {
       await supabase.from("user_profiles").upsert({
@@ -361,6 +467,7 @@ export default function Home() {
         email: currentUser.email,
         display_name: fallbackName,
         avatar_id: "star",
+        grade_level: savedGrade,
         updated_at: new Date().toISOString(),
       });
     }
@@ -406,7 +513,7 @@ export default function Home() {
     const { error } = await supabase.from("homework_history").insert({
       user_id: user.id,
       grade,
-      subject,
+      subject: AUTOMATIC_SUBJECT,
       language,
       mode,
       task: task || "",
@@ -510,7 +617,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           grade,
-          subject,
+          subject: AUTOMATIC_SUBJECT,
           task,
           imageData,
           fileData,
@@ -546,7 +653,7 @@ export default function Home() {
                 body: JSON.stringify({
                   mode: selectedMode,
                   answer: newAnswer,
-                  subject,
+                  subject: AUTOMATIC_SUBJECT,
                   grade,
                 }),
               });
@@ -939,38 +1046,19 @@ export default function Home() {
         </h1>
       </div>
 
-      <div style={{ marginTop: 10, marginBottom: 16 }}>
-        <label>{t.gradeLabel}: </label>
-        <select
-          value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-          style={{
-            marginLeft: 8,
-            padding: "8px",
-            borderRadius: "8px",
-            fontSize: "16px",
-          }}
-        >
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-        </select>
-
-        <span style={{ marginLeft: 20 }}>{t.subjectLabel}: </span>
-        <select
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          style={{
-            marginLeft: 8,
-            padding: "8px",
-            borderRadius: "8px",
-            fontSize: "16px",
-          }}
-        >
-          <option value="Mathe">{t.subjectMath}</option>
-          <option value="Deutsch">{t.subjectGerman}</option>
-          <option value="Englisch">{t.subjectEnglish}</option>
-        </select>
+      <div
+        style={{
+          margin: "10px 0 18px",
+          padding: "9px 12px",
+          borderRadius: 8,
+          backgroundColor: "#1b1b1b",
+          border: "1px solid #333",
+          color: "#d7dbe2",
+          fontSize: 14,
+          textAlign: "center",
+        }}
+      >
+        Erklärung für die {grade}. Klasse
       </div>
 
       <p>{t.uploadImage}</p>
@@ -1112,7 +1200,11 @@ export default function Home() {
             color: "black",
           }}
         >
-          <h3>{t.answerLabel}</h3>
+          <div className="learning-answer__header">
+            <span>Lernhilfe</span>
+            <h3>{t.answerLabel}</h3>
+            <p>{grade}. Klasse · Fach automatisch erkannt</p>
+          </div>
           {pointsMessage && (
             <p
               className="no-print"
@@ -1128,7 +1220,7 @@ export default function Home() {
               {pointsMessage}
             </p>
           )}
-          <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{answer}</pre>
+          <FormattedAnswer answer={answer} />
 
           <button
             className="no-print"

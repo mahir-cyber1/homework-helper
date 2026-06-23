@@ -43,6 +43,17 @@ function isMissingAvatarIdError(error) {
   );
 }
 
+function isMissingGradeLevelError(error) {
+  const message = String(error?.message || "");
+
+  return (
+    message.includes("grade_level") &&
+    (message.includes("schema cache") ||
+      message.includes("column") ||
+      message.includes("Could not find"))
+  );
+}
+
 async function findNameMatch(client, table, displayNameKey, currentUser) {
   const { data, error } = await client
     .from(table)
@@ -70,11 +81,16 @@ async function findNameMatch(client, table, displayNameKey, currentUser) {
 async function upsertProfile(client, payload) {
   const fallbackPayload = { ...payload };
   let storesAvatarInProfile = true;
+  let storesGradeInProfile = true;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const fields = storesAvatarInProfile
-      ? "display_name,avatar_id"
-      : "display_name";
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const fields = [
+      "display_name",
+      storesAvatarInProfile ? "avatar_id" : null,
+      storesGradeInProfile ? "grade_level" : null,
+    ]
+      .filter(Boolean)
+      .join(",");
     const { data, error } = await client
       .from("user_profiles")
       .upsert(fallbackPayload, { onConflict: "user_id" })
@@ -82,7 +98,12 @@ async function upsertProfile(client, payload) {
       .single();
 
     if (!error) {
-      return { data, error: null, storesAvatarInProfile };
+      return {
+        data,
+        error: null,
+        storesAvatarInProfile,
+        storesGradeInProfile,
+      };
     }
 
     if (
@@ -99,13 +120,25 @@ async function upsertProfile(client, payload) {
       continue;
     }
 
-    return { data: null, error, storesAvatarInProfile };
+    if (isMissingGradeLevelError(error) && "grade_level" in fallbackPayload) {
+      delete fallbackPayload.grade_level;
+      storesGradeInProfile = false;
+      continue;
+    }
+
+    return {
+      data: null,
+      error,
+      storesAvatarInProfile,
+      storesGradeInProfile,
+    };
   }
 
   return {
     data: null,
     error: new Error("Das Profil konnte nicht gespeichert werden."),
     storesAvatarInProfile,
+    storesGradeInProfile,
   };
 }
 
@@ -163,7 +196,7 @@ export async function POST(req) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  const { displayName, avatarId } = await req.json();
+  const { displayName, avatarId, gradeLevel } = await req.json();
   const trimmedName = String(displayName || "").trim().slice(0, 60);
   const displayNameKey = getDisplayNameKey(trimmedName);
   const selectedAvatarId = profileAvatars.some(
@@ -171,6 +204,9 @@ export async function POST(req) {
   )
     ? avatarId
     : "star";
+  const selectedGradeLevel = ["4", "5", "6"].includes(String(gradeLevel))
+    ? String(gradeLevel)
+    : "4";
 
   if (trimmedName.length < 2) {
     return Response.json(
@@ -217,12 +253,14 @@ export async function POST(req) {
     data: savedProfile,
     error,
     storesAvatarInProfile,
+    storesGradeInProfile,
   } = await upsertProfile(adminClient, {
     user_id: auth.user.id,
     email: auth.user.email,
     display_name: trimmedName,
     display_name_key: displayNameKey,
     avatar_id: selectedAvatarId,
+    grade_level: selectedGradeLevel,
     updated_at: new Date().toISOString(),
   });
 
@@ -238,7 +276,9 @@ export async function POST(req) {
 
   if (
     savedProfile?.display_name !== trimmedName ||
-    (storesAvatarInProfile && savedProfile?.avatar_id !== selectedAvatarId)
+    (storesAvatarInProfile && savedProfile?.avatar_id !== selectedAvatarId) ||
+    (storesGradeInProfile &&
+      String(savedProfile?.grade_level) !== selectedGradeLevel)
   ) {
     return Response.json(
       { error: "Das Profil konnte nicht vollstaendig gespeichert werden." },
@@ -252,10 +292,14 @@ export async function POST(req) {
       ...auth.user.user_metadata,
       display_name: trimmedName,
       avatar_id: selectedAvatarId,
+      grade_level: selectedGradeLevel,
     },
   });
 
-  if (metadataError && !storesAvatarInProfile) {
+  if (
+    metadataError &&
+    (!storesAvatarInProfile || !storesGradeInProfile)
+  ) {
     return Response.json(
       { error: "Das Profilbild konnte nicht gespeichert werden." },
       { status: 500 }
@@ -282,5 +326,6 @@ export async function POST(req) {
   return Response.json({
     displayName: savedProfile.display_name,
     avatarId: selectedAvatarId,
+    gradeLevel: selectedGradeLevel,
   });
 }

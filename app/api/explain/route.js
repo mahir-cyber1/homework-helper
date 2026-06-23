@@ -45,7 +45,6 @@ export async function POST(req) {
 
     const {
       grade,
-      subject,
       task,
       imageData,
       fileData,
@@ -63,9 +62,9 @@ export async function POST(req) {
 
     const selectedLanguage = languageNames[language] || "Deutsch";
 
-    if (!grade || !subject) {
+    if (!grade) {
       return Response.json(
-        { error: "Bitte Klasse und Fach angeben." },
+        { error: "Bitte eine Klasse im Profil auswählen." },
         { status: 400 }
       );
     }
@@ -87,7 +86,12 @@ Sprache:
 
 Grundregeln:
 - Klasse: ${grade}
-- Fach: ${subject}
+- Erkenne das Fach selbstständig aus Aufgabe, Bild oder PDF.
+- Falls das Fach nicht sicher erkennbar ist, konzentriere dich auf die sichtbare Aufgabenart.
+- Passe Wortwahl, Rechenweg, Fachbegriffe und Erklärungstiefe genau an die ${grade}. Klasse an.
+- Nutze nur Methoden, die ein Kind dieser Klassenstufe normalerweise bereits kennt.
+- Erkläre neue oder schwierige Begriffe sofort in einfachen Worten.
+- Bevorzuge kurze Sätze, konkrete Zwischenschritte und anschauliche Beispiele.
 - Erfinde keine Aufgaben dazu.
 - Wenn etwas auf dem Bild oder in der PDF nicht lesbar ist, schreibe [UNKLAR].
 - Lass keine erkennbare Einzelaufgabe weg.
@@ -194,7 +198,7 @@ Wichtig:
 
     const prompt = `
 Klasse: ${grade}
-Fach: ${subject}
+Fach: automatisch aus dem Inhalt erkennen
 Aufgabe/Text: ${task || "(kein Text eingegeben)"}
 Datei: ${fileName || "(keine Datei)"}
 Dateityp: ${fileMime || "(kein Dateityp)"}
