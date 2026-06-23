@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { getLeague } from "../lib/gamification";
-import { getProfileAvatar } from "../lib/profileAvatars";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
-const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
 const printStyles = `
 @media print {
@@ -262,9 +259,6 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [freeTaskUsed, setFreeTaskUsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [avatarId, setAvatarId] = useState("star");
-  const [gameStats, setGameStats] = useState(null);
   const [pointsMessage, setPointsMessage] = useState("");
   const [scannerImage, setScannerImage] = useState(null);
   const [scannerFileName, setScannerFileName] = useState("");
@@ -336,11 +330,6 @@ export default function Home() {
   };
 
   const t = translations[language];
-  const isAdmin = user
-    ? ADMIN_EMAILS.includes(String(user.email || "").trim().toLowerCase())
-    : false;
-  const currentAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
-  const currentLeague = gameStats?.league || getLeague(0);
 
   const getAccessToken = useCallback(async () => {
     if (!supabase) return "";
@@ -352,23 +341,6 @@ export default function Home() {
     return session?.access_token || "";
   }, []);
 
-  const loadGameStats = useCallback(async () => {
-    const token = await getAccessToken();
-
-    if (!token) return;
-
-    const res = await fetch("/api/gamification", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      setGameStats(data.stats);
-    }
-  }, [getAccessToken]);
-
   async function loadProfile(currentUser) {
     if (!supabase || !currentUser) return;
 
@@ -379,22 +351,16 @@ export default function Home() {
 
     const { data } = await supabase
       .from("user_profiles")
-      .select("display_name,avatar_id")
+      .select("user_id")
       .eq("user_id", currentUser.id)
       .maybeSingle();
 
-    const profileName = data?.display_name || fallbackName;
-    const profileAvatarId = data?.avatar_id || "star";
-
-    setDisplayName(profileName);
-    setAvatarId(profileAvatarId);
-
-    if (!data && profileName) {
+    if (!data && fallbackName) {
       await supabase.from("user_profiles").upsert({
         user_id: currentUser.id,
         email: currentUser.email,
-        display_name: profileName,
-        avatar_id: profileAvatarId,
+        display_name: fallbackName,
+        avatar_id: "star",
         updated_at: new Date().toISOString(),
       });
     }
@@ -415,7 +381,6 @@ export default function Home() {
 
       setUser(user);
       await loadProfile(user);
-      await loadGameStats();
       setAuthReady(true);
     }
 
@@ -428,27 +393,12 @@ export default function Home() {
       setUser(currentUser);
       if (currentUser) {
         loadProfile(currentUser);
-        loadGameStats();
-      } else {
-        setDisplayName("");
-        setAvatarId("star");
-        setGameStats(null);
       }
       setAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
-  }, [loadGameStats]);
-
-  async function handleSignOut() {
-    if (!supabase) return;
-
-    await supabase.auth.signOut();
-    setUser(null);
-    setDisplayName("");
-    setAvatarId("star");
-    setGameStats(null);
-  }
+  }, []);
 
   async function saveTaskToHistory(mode, savedAnswer) {
     if (!supabase || !user) return;
@@ -603,7 +553,6 @@ export default function Home() {
 
               if (pointsRes.ok) {
                 const pointsData = await pointsRes.json();
-                setGameStats(pointsData.stats);
                 setPointsMessage(
                   pointsData.pointsAwarded > 0
                     ? `${pointsData.correctTaskCount} richtig geloest · +${pointsData.pointsAwarded} Punkte · ${pointsData.stats.league.name}`
@@ -695,90 +644,17 @@ export default function Home() {
     >
       <style>{printStyles}</style>
 
-      <div
-        className="no-print"
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          borderRadius: 12,
-          backgroundColor: "#1b1b1b",
-          border: "1px solid #333",
-        }}
-      >
-        {user ? (
-          <>
-            <button
-              onClick={() => {
-                window.location.href = isAdmin ? "/admin" : "/profile";
-              }}
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: "12px",
-                border: "1px solid #333",
-                backgroundColor: "#111",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                textAlign: "left",
-              }}
-            >
-              <span
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: "50%",
-                  backgroundColor: currentAvatar.background,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 19,
-                  flex: "0 0 auto",
-                }}
-              >
-                {currentAvatar.icon}
-              </span>
-              <span style={{ minWidth: 0 }}>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 13,
-                    color: "#aaa",
-                    marginBottom: 2,
-                  }}
-                >
-                  {isAdmin ? "Admin" : "Profil"}
-                </span>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 15,
-                    fontWeight: "bold",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {isAdmin ? "Admin" : displayName || user.email}
-                </span>
-                {!isAdmin && (
-                  <span
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      color: "#ddd",
-                      marginTop: 3,
-                    }}
-                  >
-                    {currentLeague.icon} {currentLeague.name} ·{" "}
-                    {gameStats?.points || 0} Punkte
-                  </span>
-                )}
-              </span>
-            </button>
-          </>
-        ) : (
+      {!user && (
+        <div
+          className="no-print"
+          style={{
+            marginBottom: 16,
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: "#1b1b1b",
+            border: "1px solid #333",
+          }}
+        >
           <>
             <p style={{ margin: "0 0 10px", fontSize: 14 }}>
               {freeTaskUsed
@@ -802,8 +678,8 @@ export default function Home() {
               Einloggen
             </button>
           </>
-        )}
-      </div>
+        </div>
+      )}
 
       {loading && (
         <div style={overlayStyle}>

@@ -7,10 +7,17 @@ import { supabase } from "../../lib/supabase";
 const NAV_ITEMS = [
   { href: "/", label: "Start", icon: "⌂" },
   { href: "/history", label: "Aufgaben", icon: "▤" },
+  { href: "/league", label: "Liga", icon: "★" },
   { href: "/profile", label: "Profil", icon: "●" },
 ];
 
-const VISIBLE_PATHS = new Set(["/", "/history", "/profile", "/admin"]);
+const VISIBLE_PATHS = new Set([
+  "/",
+  "/history",
+  "/league",
+  "/profile",
+  "/admin",
+]);
 const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
 export default function AppNavigation() {
