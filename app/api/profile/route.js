@@ -68,26 +68,45 @@ async function findNameMatch(client, table, displayNameKey, currentUser) {
 }
 
 async function upsertProfile(client, payload) {
-  const { data, error } = await client
-    .from("user_profiles")
-    .upsert(payload, { onConflict: "user_id" })
-    .select("display_name,avatar_id")
-    .single();
+  const fallbackPayload = { ...payload };
+  let storesAvatarInProfile = true;
 
-  if (!isMissingDisplayNameKeyError(error)) {
-    return { data, error };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const fields = storesAvatarInProfile
+      ? "display_name,avatar_id"
+      : "display_name";
+    const { data, error } = await client
+      .from("user_profiles")
+      .upsert(fallbackPayload, { onConflict: "user_id" })
+      .select(fields)
+      .single();
+
+    if (!error) {
+      return { data, error: null, storesAvatarInProfile };
+    }
+
+    if (
+      isMissingDisplayNameKeyError(error) &&
+      "display_name_key" in fallbackPayload
+    ) {
+      delete fallbackPayload.display_name_key;
+      continue;
+    }
+
+    if (isMissingAvatarIdError(error) && "avatar_id" in fallbackPayload) {
+      delete fallbackPayload.avatar_id;
+      storesAvatarInProfile = false;
+      continue;
+    }
+
+    return { data: null, error, storesAvatarInProfile };
   }
 
-  const fallbackPayload = { ...payload };
-  delete fallbackPayload.display_name_key;
-
-  const { data: fallbackData, error: fallbackError } = await client
-    .from("user_profiles")
-    .upsert(fallbackPayload, { onConflict: "user_id" })
-    .select("display_name,avatar_id")
-    .single();
-
-  return { data: fallbackData, error: fallbackError };
+  return {
+    data: null,
+    error: new Error("Das Profil konnte nicht gespeichert werden."),
+    storesAvatarInProfile,
+  };
 }
 
 async function updateStoredDisplayName(client, table, email, displayName, displayNameKey) {
@@ -194,7 +213,11 @@ export async function POST(req) {
     );
   }
 
-  const { data: savedProfile, error } = await upsertProfile(adminClient, {
+  const {
+    data: savedProfile,
+    error,
+    storesAvatarInProfile,
+  } = await upsertProfile(adminClient, {
     user_id: auth.user.id,
     email: auth.user.email,
     display_name: trimmedName,
@@ -210,17 +233,12 @@ export async function POST(req) {
       message = "Dieser Name existiert bereits. Bitte waehle einen anderen Namen.";
     }
 
-    if (isMissingAvatarIdError(error)) {
-      message =
-        "Profilbild kann noch nicht gespeichert werden, weil in Supabase die Spalte avatar_id fehlt. Bitte die Profil-Reparatur-SQL ausfuehren.";
-    }
-
     return Response.json({ error: message }, { status: 500 });
   }
 
   if (
     savedProfile?.display_name !== trimmedName ||
-    savedProfile?.avatar_id !== selectedAvatarId
+    (storesAvatarInProfile && savedProfile?.avatar_id !== selectedAvatarId)
   ) {
     return Response.json(
       { error: "Das Profil konnte nicht vollstaendig gespeichert werden." },
@@ -228,13 +246,21 @@ export async function POST(req) {
     );
   }
 
-  await adminClient.auth.admin.updateUserById(auth.user.id, {
+  const { error: metadataError } =
+    await adminClient.auth.admin.updateUserById(auth.user.id, {
     user_metadata: {
       ...auth.user.user_metadata,
       display_name: trimmedName,
       avatar_id: selectedAvatarId,
     },
   });
+
+  if (metadataError && !storesAvatarInProfile) {
+    return Response.json(
+      { error: "Das Profilbild konnte nicht gespeichert werden." },
+      { status: 500 }
+    );
+  }
 
   await Promise.all([
     updateStoredDisplayName(
@@ -255,6 +281,6 @@ export async function POST(req) {
 
   return Response.json({
     displayName: savedProfile.display_name,
-    avatarId: savedProfile.avatar_id,
+    avatarId: selectedAvatarId,
   });
 }

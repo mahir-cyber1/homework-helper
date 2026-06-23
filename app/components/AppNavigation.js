@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { getProfileAvatar } from "../../lib/profileAvatars";
 
 const NAV_ITEMS = [
   { href: "/", label: "Start", icon: "⌂" },
@@ -23,18 +24,38 @@ const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 export default function AppNavigation() {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
+  const [avatarId, setAvatarId] = useState("star");
 
   useEffect(() => {
     if (!supabase) return undefined;
 
+    async function loadUser(currentUser) {
+      setUser(currentUser);
+
+      if (!currentUser) {
+        setAvatarId("star");
+        return;
+      }
+
+      const { data } = await supabase
+        .from("user_profiles")
+        .select("avatar_id")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      setAvatarId(
+        data?.avatar_id || currentUser.user_metadata?.avatar_id || "star"
+      );
+    }
+
     supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user || null);
+      loadUser(data.user || null);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      loadUser(session?.user || null);
     });
 
     return () => subscription.unsubscribe();
@@ -45,6 +66,7 @@ export default function AppNavigation() {
   const isAdmin = ADMIN_EMAILS.includes(
     String(user?.email || "").trim().toLowerCase()
   );
+  const profileAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
 
   return (
     <nav className="app-bottom-nav no-print" aria-label="App Navigation">
@@ -63,7 +85,23 @@ export default function AppNavigation() {
             aria-current={isActive ? "page" : undefined}
           >
             <span className="app-bottom-nav__icon" aria-hidden="true">
-              {item.icon}
+              {item.href === "/profile" && user ? (
+                <span
+                  style={{
+                    display: "grid",
+                    width: 25,
+                    height: 25,
+                    placeItems: "center",
+                    borderRadius: "50%",
+                    backgroundColor: profileAvatar.background,
+                    fontSize: 15,
+                  }}
+                >
+                  {profileAvatar.icon}
+                </span>
+              ) : (
+                item.icon
+              )}
             </span>
             <span>{item.label}</span>
           </a>

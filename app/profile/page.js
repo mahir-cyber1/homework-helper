@@ -47,18 +47,33 @@ export default function ProfilePage() {
       const fallbackName =
         user.user_metadata?.display_name || user.email?.split("@")[0] || "";
 
-      const { data } = await supabase
+      let { data, error } = await supabase
         .from("user_profiles")
         .select("display_name,avatar_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
+      if (error && String(error.message || "").includes("avatar_id")) {
+        const fallbackResult = await supabase
+          .from("user_profiles")
+          .select("display_name")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
+
       const profileName = isAdmin ? "Admin" : data?.display_name || fallbackName;
-      const profileAvatarId = data?.avatar_id || "star";
+      const profileAvatarId =
+        data?.avatar_id || user.user_metadata?.avatar_id || "star";
 
       setDisplayName(profileName);
       setNameDraft(profileName);
       setAvatarId(profileAvatarId);
+
+      if (error) {
+        setMessage("Profil konnte nicht vollständig geladen werden.");
+      }
 
       const {
         data: { session },
@@ -123,7 +138,8 @@ export default function ProfilePage() {
       setDisplayName(data.displayName);
       setNameDraft(data.displayName);
       setAvatarId(data.avatarId);
-      window.location.href = "/";
+      await supabase.auth.refreshSession();
+      window.location.replace("/");
     } catch {
       setMessage("Fehler: Das Profil konnte nicht gespeichert werden.");
     } finally {
