@@ -46,6 +46,63 @@ button {
   cursor: pointer;
 }
 
+.power-event {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 11px 12px;
+  border: 1px solid #343a46;
+  border-radius: 8px;
+  background: #181b21;
+  color: #d8dde7;
+}
+
+.power-event.is-active {
+  border-color: #ffb300;
+  background: #30240c;
+  color: #fff5d6;
+  box-shadow: 0 0 18px rgba(255, 179, 0, 0.16);
+}
+
+.power-event__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: #272c35;
+  color: #86b9ff;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.power-event.is-active .power-event__icon {
+  background: #ffb300;
+  color: #201600;
+}
+
+.power-event__content {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.power-event__content strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.power-event__content > span {
+  color: #9fa7b5;
+  font-size: 12px;
+}
+
+.power-event.is-active .power-event__content > span {
+  color: #ffe3a0;
+}
+
 .learning-answer {
   display: grid;
   gap: 14px;
