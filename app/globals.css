@@ -161,6 +161,25 @@ button {
   font-family: var(--font-geist-sans), Arial, sans-serif;
 }
 
+.music-back-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid #343943;
+  border-radius: 8px;
+  background: #191c22;
+  color: white;
+  font-weight: 800;
+}
+
+.music-back-button > span {
+  font-size: 26px;
+  line-height: 16px;
+}
+
 .music-header {
   display: flex;
   align-items: center;

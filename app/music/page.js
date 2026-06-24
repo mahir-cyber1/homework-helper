@@ -260,6 +260,17 @@ export default function MusicPage() {
 
   return (
     <main className="music-page">
+      <button
+        className="music-back-button"
+        onClick={() => {
+          window.location.href = "/profile";
+        }}
+        aria-label="Zurück zum Profil"
+      >
+        <span aria-hidden="true">‹</span>
+        Profil
+      </button>
+
       <header className="music-header">
         <div>
           <span>Musikwerkstatt</span>
