@@ -12,7 +12,6 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: "Start", icon: "⌂" },
   { href: "/history", label: "Aufgaben", icon: "▤" },
-  { href: "/music", label: "Musik", icon: "♫" },
   { href: "/league", label: "Liga", icon: "★" },
   { href: "/profile", label: "Profil", icon: "●" },
 ];
@@ -21,7 +20,6 @@ const VISIBLE_PATHS = new Set([
   "/",
   "/history",
   "/training",
-  "/music",
   "/league",
   "/profile",
   "/admin",

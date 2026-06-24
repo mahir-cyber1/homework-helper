@@ -592,6 +592,63 @@ export default function ProfilePage() {
           <section
             style={{
               padding: 14,
+              borderRadius: 8,
+              backgroundColor: "#1b1b1b",
+              border: "1px solid #333",
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <span
+                style={{
+                  display: "grid",
+                  width: 44,
+                  height: 44,
+                  placeItems: "center",
+                  borderRadius: "50%",
+                  backgroundColor: "#1976d2",
+                  fontSize: 24,
+                }}
+              >
+                ♫
+              </span>
+              <div>
+                <p style={{ margin: 0, fontWeight: "bold" }}>
+                  Musik & Klavier
+                </p>
+                <p style={{ margin: "3px 0 0", color: "#aaa", fontSize: 13 }}>
+                  Noten üben und einfache Lieder spielen
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                window.location.href = "/music";
+              }}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 8,
+                border: "none",
+                backgroundColor: "#1976d2",
+                color: "white",
+                fontWeight: "bold",
+              }}
+            >
+              Musik öffnen
+            </button>
+          </section>
+
+          <section
+            style={{
+              padding: 14,
               borderRadius: 12,
               backgroundColor: "#1b1b1b",
               border: "1px solid #333",
