@@ -236,6 +236,17 @@ button {
   font-size: 11px;
 }
 
+.music-sound-message {
+  margin: -4px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #b45309;
+  border-radius: 8px;
+  background: #2b1b0c;
+  color: #ffd9a0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .music-challenge {
   min-height: 278px;
   margin-bottom: 16px;

@@ -60,48 +60,52 @@ export default function MusicPage() {
   const [feedback, setFeedback] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [finished, setFinished] = useState(false);
-  const audioContextRef = useRef(null);
+  const [soundMessage, setSoundMessage] = useState("");
+  const audioElementRef = useRef(null);
+  const audioElementsRef = useRef(new Map());
 
   useEffect(() => {
+    const audioElements = audioElementsRef.current;
     const initialize = window.setTimeout(() => {
       const savedBest = Number(localStorage.getItem(BEST_SCORE_KEY) || 0);
       setBestScore(savedBest);
       setTarget(getRandomNote(""));
+
+      for (const note of NOTES) {
+        const audio = new Audio(`/sounds/piano-${note.id}.wav`);
+        audio.preload = "auto";
+        audio.load();
+        audioElements.set(note.id, audio);
+      }
     }, 0);
 
     return () => {
       window.clearTimeout(initialize);
-      audioContextRef.current?.close();
+      audioElementRef.current?.pause();
+      for (const audio of audioElements.values()) {
+        audio.pause();
+        audio.removeAttribute("src");
+      }
+      audioElements.clear();
     };
   }, []);
 
   async function playNote(note) {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
+    try {
+      audioElementRef.current?.pause();
+      const audio =
+        audioElementsRef.current.get(note.id) ||
+        new Audio(`/sounds/piano-${note.id}.wav`);
+      audio.currentTime = 0;
+      audio.volume = 1;
+      audioElementRef.current = audio;
+      await audio.play();
+      setSoundMessage("");
+    } catch {
+      setSoundMessage(
+        "Ton wurde blockiert. Bitte Medienlautstärke erhöhen und Stummmodus ausschalten."
+      );
     }
-
-    const context = audioContextRef.current;
-
-    if (context.state === "suspended") {
-      await context.resume();
-    }
-
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    const now = context.currentTime;
-
-    oscillator.type = "triangle";
-    oscillator.frequency.setValueAtTime(note.frequency, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.42, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.9);
   }
 
   function finishRound(nextScore) {
@@ -182,6 +186,12 @@ export default function MusicPage() {
           <span>Serie</span>
         </div>
       </section>
+
+      {soundMessage && (
+        <p className="music-sound-message" role="alert">
+          {soundMessage}
+        </p>
+      )}
 
       <section className="music-challenge">
         <div className="music-challenge__top">
