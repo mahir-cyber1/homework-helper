@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import { getLeague, getNextLeague } from "../../../lib/gamification";
-import { getPowerEventState } from "../../../lib/powerEvent";
 
 export const runtime = "nodejs";
 
@@ -142,10 +141,7 @@ export async function POST(req) {
     ? getTotalTaskCount(answer, correctTaskCount)
     : 0;
   const hasIncorrectTasks = isCheck && correctTaskCount < totalTaskCount;
-  const powerEvent = getPowerEventState();
-  const basePoints = correctTaskCount;
-  const bonusPoints = powerEvent.active ? basePoints : 0;
-  const pointsAwarded = basePoints + bonusPoints;
+  const pointsAwarded = correctTaskCount;
 
   const currentStats = await getStats(adminClient, auth.user.id);
   const nextPoints = currentStats.points + pointsAwarded;
@@ -163,30 +159,14 @@ export async function POST(req) {
   });
 
   if (isCheck) {
-    const pointEvents = [
-      {
-        user_id: auth.user.id,
-        email: auth.user.email,
-        points: basePoints,
-        event_type:
-          correctTaskCount > 0 ? "correct_tasks" : "checked_incorrect",
-        subject: subject || null,
-        grade: grade || null,
-      },
-    ];
-
-    if (bonusPoints > 0) {
-      pointEvents.push({
-        user_id: auth.user.id,
-        email: auth.user.email,
-        points: bonusPoints,
-        event_type: "power_event_bonus",
-        subject: subject || null,
-        grade: grade || null,
-      });
-    }
-
-    await adminClient.from("point_events").insert(pointEvents);
+    await adminClient.from("point_events").insert({
+      user_id: auth.user.id,
+      email: auth.user.email,
+      points: pointsAwarded,
+      event_type: correctTaskCount > 0 ? "correct_tasks" : "checked_incorrect",
+      subject: subject || null,
+      grade: grade || null,
+    });
 
     if (hasIncorrectTasks) {
       await adminClient.from("error_training").insert({
@@ -207,9 +187,6 @@ export async function POST(req) {
 
   return Response.json({
     pointsAwarded,
-    basePoints,
-    bonusPoints,
-    powerEvent,
     correctTaskCount,
     totalTaskCount,
     savedForTraining: hasIncorrectTasks,

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import PowerEventBanner from "./components/PowerEventBanner";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
 const AUTOMATIC_SUBJECT = "Automatisch erkannt";
@@ -698,7 +697,7 @@ export default function Home() {
                 setTrainingAvailable(Boolean(pointsData.savedForTraining));
                 setPointsMessage(
                   pointsData.pointsAwarded > 0
-                    ? `${pointsData.correctTaskCount} richtig gelöst · +${pointsData.pointsAwarded} Punkte${pointsData.bonusPoints > 0 ? ` (inklusive +${pointsData.bonusPoints} Event-Bonus)` : ""} · ${pointsData.stats.league.name}${pointsData.savedForTraining ? " · Fehlertraining aktualisiert" : ""}`
+                    ? `${pointsData.correctTaskCount} richtig gelöst · +${pointsData.pointsAwarded} Punkte · ${pointsData.stats.league.name}${pointsData.savedForTraining ? " · Fehlertraining aktualisiert" : ""}`
                     : pointsData.savedForTraining
                       ? "Fehler gespeichert. Im Fehlertraining kannst du ähnlich üben."
                       : "Geprueft. Fuer jede richtig geloeste Aufgabe gibt es 1 Punkt."
@@ -788,7 +787,6 @@ export default function Home() {
       }}
     >
       <style>{printStyles}</style>
-      <PowerEventBanner />
 
       {!user && (
         <div
