@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { text, useAppLanguage } from "../../lib/i18n";
+
+const RESET_TEXT = {
+  de: { title: "Neues Passwort", intro: "Erstelle ein neues Passwort für dein Konto.", password: "Neues Passwort", repeat: "Passwort wiederholen", wait: "Bitte warten...", save: "Passwort speichern", back: "Zurück zum Login", supabase: "Supabase ist noch nicht konfiguriert.", short: "Das Passwort muss mindestens 6 Zeichen haben.", mismatch: "Die Passwörter stimmen nicht überein.", success: "Passwort wurde gespeichert. Du kannst dich jetzt einloggen." },
+  en: { title: "New password", intro: "Create a new password for your account.", password: "New password", repeat: "Repeat password", wait: "Please wait...", save: "Save password", back: "Back to login", supabase: "Supabase is not configured yet.", short: "The password must contain at least 6 characters.", mismatch: "The passwords do not match.", success: "Password saved. You can now log in." },
+  tr: { title: "Yeni şifre", intro: "Hesabın için yeni bir şifre oluştur.", password: "Yeni şifre", repeat: "Şifreyi tekrarla", wait: "Lütfen bekle...", save: "Şifreyi kaydet", back: "Girişe dön", supabase: "Supabase henüz yapılandırılmadı.", short: "Şifre en az 6 karakter olmalıdır.", mismatch: "Şifreler eşleşmiyor.", success: "Şifre kaydedildi. Şimdi giriş yapabilirsin." },
+};
 
 export default function ResetPasswordPage() {
+  const { language } = useAppLanguage();
+  const tx = text(RESET_TEXT, language);
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -13,7 +22,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     async function initSession() {
       if (!supabase) {
-        setMessage("Supabase ist noch nicht konfiguriert.");
+        setMessage(tx.supabase);
         setReady(true);
         return;
       }
@@ -45,26 +54,26 @@ export default function ResetPasswordPage() {
     }
 
     initSession();
-  }, []);
+  }, [tx.supabase]);
 
   async function handleUpdatePassword() {
     setLoading(true);
     setMessage("");
 
     if (!supabase) {
-      setMessage("Fehler: Supabase ist noch nicht konfiguriert.");
+      setMessage(`Fehler: ${tx.supabase}`);
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setMessage("Das Passwort muss mindestens 6 Zeichen haben.");
+      setMessage(tx.short);
       setLoading(false);
       return;
     }
 
     if (password !== repeatPassword) {
-      setMessage("Die Passwoerter stimmen nicht ueberein.");
+      setMessage(tx.mismatch);
       setLoading(false);
       return;
     }
@@ -74,7 +83,7 @@ export default function ResetPasswordPage() {
     if (error) {
       setMessage("Fehler: " + error.message);
     } else {
-      setMessage("Passwort wurde gespeichert. Du kannst dich jetzt einloggen.");
+      setMessage(tx.success);
       await supabase.auth.signOut();
     }
 
@@ -93,13 +102,13 @@ export default function ResetPasswordPage() {
         color: "white",
       }}
     >
-      <h1>Neues Passwort</h1>
+      <h1>{tx.title}</h1>
 
-      <p>Erstelle ein neues Passwort fuer dein Konto.</p>
+      <p>{tx.intro}</p>
 
       <input
         type="password"
-        placeholder="Neues Passwort"
+        placeholder={tx.password}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         style={{
@@ -115,7 +124,7 @@ export default function ResetPasswordPage() {
 
       <input
         type="password"
-        placeholder="Passwort wiederholen"
+        placeholder={tx.repeat}
         value={repeatPassword}
         onChange={(e) => setRepeatPassword(e.target.value)}
         style={{
@@ -143,7 +152,7 @@ export default function ResetPasswordPage() {
           color: "white",
         }}
       >
-        {loading ? "Bitte warten..." : "Passwort speichern"}
+        {loading ? tx.wait : tx.save}
       </button>
 
       <button
@@ -162,7 +171,7 @@ export default function ResetPasswordPage() {
           marginTop: 12,
         }}
       >
-        Zurueck zum Login
+        {tx.back}
       </button>
 
       {message && <p style={{ marginTop: 20 }}>{message}</p>}

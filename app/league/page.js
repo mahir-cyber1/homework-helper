@@ -4,8 +4,31 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { getLeague, leagues } from "../../lib/gamification";
+import { text, useAppLanguage } from "../../lib/i18n";
+
+const LEAGUE_TEXT = {
+  de: { title: "Meine Liga", loading: "Wird geladen...", loginInfo: "Bitte logge dich ein, um deine Liga zu sehen.", login: "Einloggen", points: "Punkte", remaining: "Noch {count} Punkte bis {league}", highest: "Du hast die höchste Liga erreicht.", correct: "richtig gelöst", checks: "Prüfungen", all: "Alle Ligen", from: "ab {count} Punkten", active: "Aktiv", reached: "Erreicht", locked: "Gesperrt", loadError: "Liga konnte nicht geladen werden." },
+  en: { title: "My league", loading: "Loading...", loginInfo: "Please log in to view your league.", login: "Log in", points: "points", remaining: "{count} points left to {league}", highest: "You reached the highest league.", correct: "correct answers", checks: "checks", all: "All leagues", from: "from {count} points", active: "Active", reached: "Reached", locked: "Locked", loadError: "League could not be loaded." },
+  tr: { title: "Ligim", loading: "Yükleniyor...", loginInfo: "Ligini görmek için giriş yap.", login: "Giriş yap", points: "puan", remaining: "{league} için {count} puan kaldı", highest: "En yüksek lige ulaştın.", correct: "doğru çözüm", checks: "kontrol", all: "Tüm ligler", from: "{count} puandan itibaren", active: "Aktif", reached: "Ulaşıldı", locked: "Kilitli", loadError: "Lig yüklenemedi." },
+};
+
+function fill(template, values) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replace(`{${key}}`, value),
+    template
+  );
+}
+
+const LEAGUE_NAMES = {
+  de: { bronze: "Bronze Liga", silver: "Silber Liga", gold: "Gold Liga", platinum: "Platin Liga", diamond: "Diamant Liga", cosmic: "Kosmische Liga" },
+  en: { bronze: "Bronze League", silver: "Silver League", gold: "Gold League", platinum: "Platinum League", diamond: "Diamond League", cosmic: "Cosmic League" },
+  tr: { bronze: "Bronz Lig", silver: "Gümüş Lig", gold: "Altın Lig", platinum: "Platin Lig", diamond: "Elmas Lig", cosmic: "Kozmik Lig" },
+};
 
 export default function LeaguePage() {
+  const { language } = useAppLanguage();
+  const tx = text(LEAGUE_TEXT, language);
+  const leagueNames = text(LEAGUE_NAMES, language);
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -42,14 +65,14 @@ export default function LeaguePage() {
       if (res.ok) {
         setStats(data.stats);
       } else {
-        setMessage(data?.error || "Liga konnte nicht geladen werden.");
+        setMessage(data?.error || tx.loadError);
       }
 
       setLoading(false);
     }
 
     loadLeague();
-  }, []);
+  }, [tx.loadError]);
 
   const points = stats?.points || 0;
   const currentLeague = stats?.league || getLeague(points);
@@ -79,9 +102,9 @@ export default function LeaguePage() {
         borderRadius: 24,
       }}
     >
-      <h1 style={{ fontSize: 28, margin: "4px 0 18px" }}>Meine Liga</h1>
+      <h1 style={{ fontSize: 28, margin: "4px 0 18px" }}>{tx.title}</h1>
 
-      {loading && <p>Wird geladen...</p>}
+      {loading && <p>{tx.loading}</p>}
 
       {!loading && !user && (
         <section
@@ -93,7 +116,7 @@ export default function LeaguePage() {
           }}
         >
           <p style={{ margin: "0 0 12px" }}>
-            Bitte logge dich ein, um deine Liga zu sehen.
+            {tx.loginInfo}
           </p>
           <button
             onClick={() => {
@@ -109,7 +132,7 @@ export default function LeaguePage() {
               fontWeight: "bold",
             }}
           >
-            Einloggen
+            {tx.login}
           </button>
         </section>
       )}
@@ -136,7 +159,7 @@ export default function LeaguePage() {
             >
               <Image
                 src={currentLeague.image}
-                alt={`${currentLeague.name} Pokal`}
+                alt={leagueNames[currentLeague.id]}
                 fill
                 priority
                 sizes="190px"
@@ -144,9 +167,9 @@ export default function LeaguePage() {
               />
             </div>
             <h2 style={{ margin: "10px 0 4px", fontSize: 24 }}>
-              {currentLeague.name}
+              {leagueNames[currentLeague.id]}
             </h2>
-            <p style={{ margin: 0, color: "#aeb4bf" }}>{points} Punkte</p>
+            <p style={{ margin: 0, color: "#aeb4bf" }}>{points} {tx.points}</p>
 
             <div
               style={{
@@ -169,8 +192,8 @@ export default function LeaguePage() {
 
             <p style={{ margin: "9px 0 0", color: "#c7cbd2", fontSize: 13 }}>
               {nextLeague
-                ? `Noch ${stats.pointsToNextLeague} Punkte bis ${nextLeague.name}`
-                : "Du hast die höchste Liga erreicht."}
+                ? fill(tx.remaining, { count: stats.pointsToNextLeague, league: leagueNames[nextLeague.id] })
+                : tx.highest}
             </p>
           </section>
 
@@ -194,7 +217,7 @@ export default function LeaguePage() {
                 {stats?.correctChecks || 0}
               </strong>
               <span style={{ color: "#aaa", fontSize: 13 }}>
-                richtig gelöst
+                {tx.correct}
               </span>
             </div>
             <div
@@ -209,12 +232,12 @@ export default function LeaguePage() {
                 {stats?.totalChecks || 0}
               </strong>
               <span style={{ color: "#aaa", fontSize: 13 }}>
-                Prüfungen
+                {tx.checks}
               </span>
             </div>
           </section>
 
-          <h2 style={{ fontSize: 18, margin: "0 0 10px" }}>Alle Ligen</h2>
+          <h2 style={{ fontSize: 18, margin: "0 0 10px" }}>{tx.all}</h2>
           <div style={{ display: "grid", gap: 8 }}>
             {leagues.map((league) => {
               const reached = points >= league.minPoints;
@@ -248,20 +271,20 @@ export default function LeaguePage() {
                   >
                     <Image
                       src={league.image}
-                      alt={`${league.name} Pokal`}
+                      alt={leagueNames[league.id]}
                       fill
                       sizes="58px"
                       style={{ objectFit: "contain" }}
                     />
                   </span>
                   <span style={{ flex: 1 }}>
-                    <strong style={{ display: "block" }}>{league.name}</strong>
+                    <strong style={{ display: "block" }}>{leagueNames[league.id]}</strong>
                     <span style={{ color: "#aaa", fontSize: 12 }}>
-                      ab {league.minPoints} Punkten
+                      {fill(tx.from, { count: league.minPoints })}
                     </span>
                   </span>
                   <span style={{ color: reached ? "#66bb6a" : "#888" }}>
-                    {active ? "Aktiv" : reached ? "Erreicht" : "Gesperrt"}
+                    {active ? tx.active : reached ? tx.reached : tx.locked}
                   </span>
                 </div>
               );

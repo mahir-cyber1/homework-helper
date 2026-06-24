@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import { text, useAppLanguage } from "../../lib/i18n";
 import {
   getProfileAvatar,
   getProfileFrame,
@@ -10,10 +12,10 @@ import {
 } from "../../lib/profileAvatars";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Start", icon: "⌂" },
-  { href: "/history", label: "Aufgaben", icon: "▤" },
-  { href: "/league", label: "Liga", icon: "★" },
-  { href: "/profile", label: "Profil", icon: "●" },
+  { href: "/", label: { de: "Start", en: "Home", tr: "Ana sayfa" }, icon: "⌂" },
+  { href: "/history", label: { de: "Aufgaben", en: "Tasks", tr: "Ödevler" }, icon: "▤" },
+  { href: "/league", label: { de: "Liga", en: "League", tr: "Lig" }, icon: "★" },
+  { href: "/profile", label: { de: "Profil", en: "Profile", tr: "Profil" }, icon: "●" },
 ];
 
 const VISIBLE_PATHS = new Set([
@@ -28,6 +30,7 @@ const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
 export default function AppNavigation() {
   const pathname = usePathname();
+  const { language } = useAppLanguage();
   const [user, setUser] = useState(null);
   const [avatarId, setAvatarId] = useState("star");
   const [frameId, setFrameId] = useState("none");
@@ -96,7 +99,7 @@ export default function AppNavigation() {
           (item.href === "/profile" && pathname === "/admin");
 
         return (
-          <a
+          <Link
             key={item.href}
             href={href}
             className={`app-bottom-nav__item${isActive ? " is-active" : ""}`}
@@ -125,8 +128,8 @@ export default function AppNavigation() {
                 item.icon
               )}
             </span>
-            <span>{item.label}</span>
-          </a>
+            <span>{text(item.label, language)}</span>
+          </Link>
         );
       })}
     </nav>

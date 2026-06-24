@@ -11,10 +11,25 @@ import {
   profileFrames,
   profileThemes,
 } from "../../lib/profileAvatars";
+import { text, useAppLanguage } from "../../lib/i18n";
+
+const PROFILE_TEXT = {
+  de: { back: "Zurück zur App", title: "Profil", loading: "Wird geladen...", loginInfo: "Bitte logge dich zuerst ein.", login: "Einloggen", points: "Punkte", correctChecks: "richtige Prüfungen", remaining: "Noch {count} Punkte bis {league}.", highest: "Höchste Liga erreicht.", adminLocked: "Admin-Name und Admin-Profilbild können nicht geändert werden.", name: "Name oder Nickname", avatar: "Profilbild", frame: "Profilrahmen", color: "App-Farbe", myGrade: "Meine Klasse", grade: "Klasse", saving: "Wird gespeichert...", saveProfile: "Profil speichern", music: "Musik & Klavier", musicInfo: "Noten üben und einfache Lieder spielen", openMusic: "Musik öffnen", changePassword: "Passwort ändern", newPassword: "Neues Passwort", repeatPassword: "Passwort wiederholen", savePassword: "Passwort speichern", tasks: "Meine Aufgaben", logout: "Abmelden", supabase: "Supabase ist nicht konfiguriert." },
+  en: { back: "Back to app", title: "Profile", loading: "Loading...", loginInfo: "Please log in first.", login: "Log in", points: "points", correctChecks: "correct checks", remaining: "{count} points left to {league}.", highest: "Highest league reached.", adminLocked: "The admin name and picture cannot be changed.", name: "Name or nickname", avatar: "Profile picture", frame: "Profile frame", color: "App color", myGrade: "My grade", grade: "Grade", saving: "Saving...", saveProfile: "Save profile", music: "Music & piano", musicInfo: "Practice notes and play easy songs", openMusic: "Open music", changePassword: "Change password", newPassword: "New password", repeatPassword: "Repeat password", savePassword: "Save password", tasks: "My tasks", logout: "Log out", supabase: "Supabase is not configured." },
+  tr: { back: "Uygulamaya dön", title: "Profil", loading: "Yükleniyor...", loginInfo: "Önce giriş yap.", login: "Giriş yap", points: "puan", correctChecks: "doğru kontrol", remaining: "{league} için {count} puan kaldı.", highest: "En yüksek lige ulaşıldı.", adminLocked: "Yönetici adı ve profil resmi değiştirilemez.", name: "İsim veya kullanıcı adı", avatar: "Profil resmi", frame: "Profil çerçevesi", color: "Uygulama rengi", myGrade: "Sınıfım", grade: "Sınıf", saving: "Kaydediliyor...", saveProfile: "Profili kaydet", music: "Müzik & piyano", musicInfo: "Nota çalış ve kolay şarkılar çal", openMusic: "Müziği aç", changePassword: "Şifreyi değiştir", newPassword: "Yeni şifre", repeatPassword: "Şifreyi tekrarla", savePassword: "Şifreyi kaydet", tasks: "Ödevlerim", logout: "Çıkış yap", supabase: "Supabase yapılandırılmadı." },
+};
+const PROFILE_LEAGUES = {
+  de: { bronze: "Bronze Liga", silver: "Silber Liga", gold: "Gold Liga", platinum: "Platin Liga", diamond: "Diamant Liga", cosmic: "Kosmische Liga" },
+  en: { bronze: "Bronze League", silver: "Silver League", gold: "Gold League", platinum: "Platinum League", diamond: "Diamond League", cosmic: "Cosmic League" },
+  tr: { bronze: "Bronz Lig", silver: "Gümüş Lig", gold: "Altın Lig", platinum: "Platin Lig", diamond: "Elmas Lig", cosmic: "Kozmik Lig" },
+};
 
 const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
 export default function ProfilePage() {
+  const { language } = useAppLanguage();
+  const tx = text(PROFILE_TEXT, language);
+  const leagueNames = text(PROFILE_LEAGUES, language);
   const [user, setUser] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [nameDraft, setNameDraft] = useState("");
@@ -26,9 +41,7 @@ export default function ProfilePage() {
   const [repeatPassword, setRepeatPassword] = useState("");
   const [gameStats, setGameStats] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [message, setMessage] = useState(
-    supabase ? "" : "Supabase ist nicht konfiguriert."
-  );
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(Boolean(supabase));
 
   const isAdmin = user
@@ -253,12 +266,12 @@ export default function ProfilePage() {
           marginBottom: 14,
         }}
       >
-        Zurueck zur App
+        {tx.back}
       </button>
 
-      <h1 style={{ fontSize: 28, marginTop: 0 }}>Profil</h1>
+      <h1 style={{ fontSize: 28, marginTop: 0 }}>{tx.title}</h1>
 
-      {loading && <p>Wird geladen...</p>}
+      {loading && <p>{tx.loading}</p>}
 
       {!loading && !user && (
         <div
@@ -269,7 +282,7 @@ export default function ProfilePage() {
             border: "1px solid #333",
           }}
         >
-          <p style={{ marginTop: 0 }}>Bitte logge dich zuerst ein.</p>
+          <p style={{ marginTop: 0 }}>{tx.loginInfo}</p>
           <button
             onClick={() => {
               window.location.href = "/login";
@@ -284,7 +297,7 @@ export default function ProfilePage() {
               fontWeight: "bold",
             }}
           >
-            Einloggen
+            {tx.login}
           </button>
         </div>
       )}
@@ -346,20 +359,21 @@ export default function ProfilePage() {
               }}
             >
               <p style={{ margin: "0 0 8px", fontWeight: "bold" }}>
-                {currentLeague.icon} {currentLeague.name}
+                {currentLeague.icon} {leagueNames[currentLeague.id]}
               </p>
               <p style={{ margin: "0 0 8px", color: "#ccc" }}>
-                {gameStats?.points || 0} Punkte ·{" "}
-                {gameStats?.correctChecks || 0} richtige Prüfungen
+                {gameStats?.points || 0} {tx.points} ·{" "}
+                {gameStats?.correctChecks || 0} {tx.correctChecks}
               </p>
               {gameStats?.nextLeague ? (
                 <p style={{ margin: 0, color: "#aaa", fontSize: 13 }}>
-                  Noch {gameStats.pointsToNextLeague} Punkte bis{" "}
-                  {gameStats.nextLeague.name}.
+                  {tx.remaining
+                    .replace("{count}", gameStats.pointsToNextLeague)
+                    .replace("{league}", leagueNames[gameStats.nextLeague.id])}
                 </p>
               ) : (
                 <p style={{ margin: 0, color: "#aaa", fontSize: 13 }}>
-                  Hoechste Liga erreicht.
+                  {tx.highest}
                 </p>
               )}
             </section>
@@ -376,7 +390,7 @@ export default function ProfilePage() {
               }}
             >
               <p style={{ margin: 0 }}>
-                Admin-Name und Admin-Profilbild koennen nicht geaendert werden.
+                {tx.adminLocked}
               </p>
             </section>
           ) : (
@@ -390,7 +404,7 @@ export default function ProfilePage() {
               }}
             >
               <label style={{ display: "block", marginBottom: 6 }}>
-                Name oder Nickname
+                {tx.name}
               </label>
               <input
                 type="text"
@@ -411,7 +425,7 @@ export default function ProfilePage() {
                 }}
               />
 
-              <p style={{ margin: "0 0 10px" }}>Profilbild</p>
+              <p style={{ margin: "0 0 10px" }}>{tx.avatar}</p>
               <div
                 style={{
                   display: "grid",
@@ -463,7 +477,7 @@ export default function ProfilePage() {
                 ))}
               </div>
 
-              <p style={{ margin: "0 0 10px" }}>Profilrahmen</p>
+              <p style={{ margin: "0 0 10px" }}>{tx.frame}</p>
               <div
                 style={{
                   display: "grid",
@@ -505,14 +519,14 @@ export default function ProfilePage() {
                         }}
                       />
                       <span style={{ fontSize: 11 }}>
-                        {locked ? `${frame.unlockPoints} Punkte` : frame.label}
+                        {locked ? `${frame.unlockPoints} ${tx.points}` : frame.label}
                       </span>
                     </button>
                   );
                 })}
               </div>
 
-              <p style={{ margin: "0 0 10px" }}>App-Farbe</p>
+              <p style={{ margin: "0 0 10px" }}>{tx.color}</p>
               <div
                 style={{
                   display: "grid",
@@ -545,7 +559,7 @@ export default function ProfilePage() {
               </div>
 
               <label style={{ display: "block", marginBottom: 6 }}>
-                Meine Klasse
+                {tx.myGrade}
               </label>
               <select
                 value={gradeLevel}
@@ -565,9 +579,9 @@ export default function ProfilePage() {
                   fontSize: 16,
                 }}
               >
-                <option value="4">4. Klasse</option>
-                <option value="5">5. Klasse</option>
-                <option value="6">6. Klasse</option>
+                <option value="4">{tx.grade} 4</option>
+                <option value="5">{tx.grade} 5</option>
+                <option value="6">{tx.grade} 6</option>
               </select>
 
               <button
@@ -584,7 +598,7 @@ export default function ProfilePage() {
                   opacity: savingProfile ? 0.65 : 1,
                 }}
               >
-                {savingProfile ? "Wird gespeichert..." : "Profil speichern"}
+                {savingProfile ? tx.saving : tx.saveProfile}
               </button>
             </section>
           )}
@@ -621,10 +635,10 @@ export default function ProfilePage() {
               </span>
               <div>
                 <p style={{ margin: 0, fontWeight: "bold" }}>
-                  Musik & Klavier
+                  {tx.music}
                 </p>
                 <p style={{ margin: "3px 0 0", color: "#aaa", fontSize: 13 }}>
-                  Noten üben und einfache Lieder spielen
+                  {tx.musicInfo}
                 </p>
               </div>
             </div>
@@ -642,7 +656,7 @@ export default function ProfilePage() {
                 fontWeight: "bold",
               }}
             >
-              Musik öffnen
+              {tx.openMusic}
             </button>
           </section>
 
@@ -656,11 +670,11 @@ export default function ProfilePage() {
             }}
           >
             <p style={{ marginTop: 0, fontWeight: "bold" }}>
-              Passwort aendern
+              {tx.changePassword}
             </p>
             <input
               type="password"
-              placeholder="Neues Passwort"
+              placeholder={tx.newPassword}
               value={newPassword}
               onChange={(e) => {
                 setNewPassword(e.target.value);
@@ -679,7 +693,7 @@ export default function ProfilePage() {
             />
             <input
               type="password"
-              placeholder="Passwort wiederholen"
+              placeholder={tx.repeatPassword}
               value={repeatPassword}
               onChange={(e) => {
                 setRepeatPassword(e.target.value);
@@ -708,7 +722,7 @@ export default function ProfilePage() {
                 fontWeight: "bold",
               }}
             >
-              Passwort speichern
+              {tx.savePassword}
             </button>
           </section>
 
@@ -727,7 +741,7 @@ export default function ProfilePage() {
               marginBottom: 10,
             }}
           >
-            Meine Aufgaben
+            {tx.tasks}
           </button>
 
           <button
@@ -742,12 +756,14 @@ export default function ProfilePage() {
               fontWeight: "bold",
             }}
           >
-            Abmelden
+            {tx.logout}
           </button>
         </>
       )}
 
-      {message && <p style={{ marginTop: 20 }}>{message}</p>}
+      {(message || !supabase) && (
+        <p style={{ marginTop: 20 }}>{message || tx.supabase}</p>
+      )}
     </main>
   );
 }

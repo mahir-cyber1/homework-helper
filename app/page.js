@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { useAppLanguage } from "../lib/i18n";
 
 const FREE_USAGE_KEY = "homework-helper-free-task-used";
 const AUTOMATIC_SUBJECT = "Automatisch erkannt";
@@ -341,7 +342,7 @@ export default function Home() {
   const [task, setTask] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [language, setLanguage] = useState("de");
+  const { language, setLanguage } = useAppLanguage();
   const [imageData, setImageData] = useState(null);
   const [fileData, setFileData] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -379,6 +380,15 @@ export default function Home() {
       printPdf: "📄 Als PDF speichern / Drucken",
       loadingText: "Wird bearbeitet...",
       pleaseWait: "⏳ Bitte warten...",
+      guestFree: "Du bist nicht eingeloggt. Eine Aufgabe kannst du kostenlos lösen.",
+      guestUsed: "Eine Aufgabe wurde kostenlos gelöst. Für weitere Aufgaben bitte einloggen.",
+      login: "Einloggen", gradeInfo: `Erklärung für die ${grade}. Klasse`,
+      selected: "Ausgewählt", learningHelp: "Lernhilfe",
+      autoSubject: `${grade}. Klasse · Fach automatisch erkannt`,
+      trainErrors: "Jetzt Fehler trainieren", speak: "Antwort vorlesen",
+      stopSpeaking: "Vorlesen stoppen",
+      savedTraining: "Fehler gespeichert. Im Fehlertraining kannst du ähnlich üben.",
+      checkedPoints: "Geprüft. Für jede richtig gelöste Aufgabe gibt es 1 Punkt.",
     },
     tr: {
       selectLanguage: "Dil",
@@ -399,6 +409,15 @@ export default function Home() {
       printPdf: "📄 PDF olarak kaydet / Yazdır",
       loadingText: "İşleniyor...",
       pleaseWait: "⏳ Lütfen bekleyin...",
+      guestFree: "Giriş yapmadın. Bir ödevi ücretsiz çözebilirsin.",
+      guestUsed: "Bir ödev ücretsiz çözüldü. Daha fazlası için giriş yap.",
+      login: "Giriş yap", gradeInfo: `${grade}. sınıf için açıklama`,
+      selected: "Seçildi", learningHelp: "Öğrenme yardımı",
+      autoSubject: `${grade}. sınıf · Ders otomatik tanındı`,
+      trainErrors: "Şimdi hataları çalış", speak: "Cevabı sesli oku",
+      stopSpeaking: "Sesli okumayı durdur",
+      savedTraining: "Hata kaydedildi. Hata çalışmasında benzer sorular çözebilirsin.",
+      checkedPoints: "Kontrol edildi. Her doğru ödev için 1 puan kazanırsın.",
     },
     en: {
       selectLanguage: "Language",
@@ -419,6 +438,15 @@ export default function Home() {
       printPdf: "📄 Save as PDF / Print",
       loadingText: "Processing...",
       pleaseWait: "⏳ Please wait...",
+      guestFree: "You are not logged in. You can solve one task for free.",
+      guestUsed: "One task was solved for free. Please log in for more.",
+      login: "Log in", gradeInfo: `Explanation for grade ${grade}`,
+      selected: "Selected", learningHelp: "Learning help",
+      autoSubject: `Grade ${grade} · Subject detected automatically`,
+      trainErrors: "Practice mistakes now", speak: "Read answer aloud",
+      stopSpeaking: "Stop reading",
+      savedTraining: "Mistake saved. You can practice a similar task in mistake training.",
+      checkedPoints: "Checked. You earn 1 point for every correct task.",
     },
   };
 
@@ -699,8 +727,8 @@ export default function Home() {
                   pointsData.pointsAwarded > 0
                     ? `${pointsData.correctTaskCount} richtig gelöst · +${pointsData.pointsAwarded} Punkte · ${pointsData.stats.league.name}${pointsData.savedForTraining ? " · Fehlertraining aktualisiert" : ""}`
                     : pointsData.savedForTraining
-                      ? "Fehler gespeichert. Im Fehlertraining kannst du ähnlich üben."
-                      : "Geprueft. Fuer jede richtig geloeste Aufgabe gibt es 1 Punkt."
+                      ? t.savedTraining
+                      : t.checkedPoints
                 );
               }
             }
@@ -801,9 +829,7 @@ export default function Home() {
         >
           <>
             <p style={{ margin: "0 0 10px", fontSize: 14 }}>
-              {freeTaskUsed
-                ? "Eine Aufgabe wurde kostenlos gelöst. Für weitere Aufgaben bitte einloggen."
-                : "Du bist nicht eingeloggt. Eine Aufgabe kannst du kostenlos lösen."}
+              {freeTaskUsed ? t.guestUsed : t.guestFree}
             </p>
             <button
               onClick={() => {
@@ -819,7 +845,7 @@ export default function Home() {
                 fontWeight: "bold",
               }}
             >
-              Einloggen
+              {t.login}
             </button>
           </>
         </div>
@@ -1095,7 +1121,7 @@ export default function Home() {
           textAlign: "center",
         }}
       >
-        Erklärung für die {grade}. Klasse
+        {t.gradeInfo}
       </div>
 
       <p>{t.uploadImage}</p>
@@ -1130,7 +1156,7 @@ export default function Home() {
 
       {fileName && (
         <p style={{ fontSize: 14, marginTop: -4, marginBottom: 12 }}>
-          Ausgewählt: {fileName}
+          {t.selected}: {fileName}
         </p>
       )}
 
@@ -1238,9 +1264,9 @@ export default function Home() {
           }}
         >
           <div className="learning-answer__header">
-            <span>Lernhilfe</span>
+            <span>{t.learningHelp}</span>
             <h3>{t.answerLabel}</h3>
-            <p>{grade}. Klasse · Fach automatisch erkannt</p>
+            <p>{t.autoSubject}</p>
           </div>
           {pointsMessage && (
             <p
@@ -1274,7 +1300,7 @@ export default function Home() {
                 fontWeight: "bold",
               }}
             >
-              Jetzt Fehler trainieren
+              {t.trainErrors}
             </button>
           )}
           <FormattedAnswer answer={answer} />
@@ -1294,7 +1320,7 @@ export default function Home() {
               fontWeight: "bold",
             }}
           >
-            {isSpeaking ? "Vorlesen stoppen" : "Antwort vorlesen"}
+            {isSpeaking ? t.stopSpeaking : t.speak}
           </button>
 
           <button

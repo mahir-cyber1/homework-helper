@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { text, useAppLanguage } from "../../lib/i18n";
+
+const ADMIN_TEXT = {
+  de: { back: "Zurück zur App", signedIn: "Eingeloggt als", loading: "Wird geladen...", users: "Benutzer", waiting: "Warten", pending: "Warten auf Freigabe", noPending: "Keine offenen Login-Anfragen.", unnamed: "Ohne Namen", approve: "Freigeben", reject: "Ablehnen", noUsers: "Noch keine freigegebenen Benutzer.", login: "Einloggen", approved: "Freigegeben", remove: "Freigabe entfernen" },
+  en: { back: "Back to app", signedIn: "Logged in as", loading: "Loading...", users: "Users", waiting: "Waiting", pending: "Waiting for approval", noPending: "No pending login requests.", unnamed: "No name", approve: "Approve", reject: "Reject", noUsers: "No approved users yet.", login: "Log in", approved: "Approved", remove: "Remove approval" },
+  tr: { back: "Uygulamaya dön", signedIn: "Giriş yapılan hesap", loading: "Yükleniyor...", users: "Kullanıcılar", waiting: "Bekleyen", pending: "Onay bekleyenler", noPending: "Açık giriş isteği yok.", unnamed: "İsimsiz", approve: "Onayla", reject: "Reddet", noUsers: "Henüz onaylanmış kullanıcı yok.", login: "Giriş yap", approved: "Onaylandı", remove: "Onayı kaldır" },
+};
 
 export default function AdminPage() {
+  const { language } = useAppLanguage();
+  const tx = text(ADMIN_TEXT, language);
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -126,18 +135,18 @@ export default function AdminPage() {
           marginBottom: 14,
         }}
       >
-        Zurueck zur App
+        {tx.back}
       </button>
 
       <h1 style={{ fontSize: 28, marginTop: 0 }}>Admin</h1>
 
       {user && (
         <p style={{ color: "#ccc", fontSize: 14 }}>
-          Eingeloggt als: {user.email}
+          {tx.signedIn}: {user.email}
         </p>
       )}
 
-      {loading && <p>Wird geladen...</p>}
+      {loading && <p>{tx.loading}</p>}
 
       {message && (
         <div
@@ -165,7 +174,7 @@ export default function AdminPage() {
                 fontWeight: "bold",
               }}
             >
-              Einloggen
+              {tx.login}
             </button>
           )}
         </div>
@@ -189,7 +198,7 @@ export default function AdminPage() {
             }}
           >
             <p style={{ margin: "0 0 4px", color: "#aaa", fontSize: 13 }}>
-              Benutzer
+              {tx.users}
             </p>
             <p style={{ margin: 0, fontSize: 24, fontWeight: "bold" }}>
               {users.length}
@@ -204,7 +213,7 @@ export default function AdminPage() {
             }}
           >
             <p style={{ margin: "0 0 4px", color: "#aaa", fontSize: 13 }}>
-              Warten
+              {tx.waiting}
             </p>
             <p style={{ margin: 0, fontSize: 24, fontWeight: "bold" }}>
               {pendingRequests.length}
@@ -214,11 +223,11 @@ export default function AdminPage() {
       )}
 
       {!loading && !message && (
-        <h2 style={{ fontSize: 22, marginTop: 0 }}>Warten auf Freigabe</h2>
+        <h2 style={{ fontSize: 22, marginTop: 0 }}>{tx.pending}</h2>
       )}
 
       {!loading && pendingRequests.length === 0 && !message && (
-        <p style={{ color: "#ccc" }}>Keine offenen Login-Anfragen.</p>
+        <p style={{ color: "#ccc" }}>{tx.noPending}</p>
       )}
 
       {pendingRequests.map((request) => (
@@ -233,7 +242,7 @@ export default function AdminPage() {
           }}
         >
           <p style={{ margin: "0 0 6px", fontWeight: "bold" }}>
-            {request.display_name || "Ohne Namen"}
+            {request.display_name || tx.unnamed}
           </p>
           <p style={{ margin: "0 0 6px", color: "#ccc" }}>{request.email}</p>
           <p style={{ margin: "0 0 10px", fontSize: 13, color: "#aaa" }}>
@@ -255,7 +264,7 @@ export default function AdminPage() {
                 fontWeight: "bold",
               }}
             >
-              Freigeben
+              {tx.approve}
             </button>
             <button
               onClick={() => updateRequest(request.id, "reject")}
@@ -270,18 +279,18 @@ export default function AdminPage() {
                 fontWeight: "bold",
               }}
             >
-              Ablehnen
+              {tx.reject}
             </button>
           </div>
         </article>
       ))}
 
       {!loading && !message && (
-        <h2 style={{ fontSize: 22, marginTop: 22 }}>Benutzer</h2>
+        <h2 style={{ fontSize: 22, marginTop: 22 }}>{tx.users}</h2>
       )}
 
       {!loading && users.length === 0 && !message && (
-        <p style={{ color: "#ccc" }}>Noch keine freigegebenen Benutzer.</p>
+        <p style={{ color: "#ccc" }}>{tx.noUsers}</p>
       )}
 
       {users.map((approvedUser) => {
@@ -301,14 +310,16 @@ export default function AdminPage() {
             }}
           >
             <p style={{ margin: "0 0 6px", fontWeight: "bold" }}>
-              {approvedUser.display_name || "Ohne Namen"}
+              {approvedUser.display_name || tx.unnamed}
             </p>
             <p style={{ margin: "0 0 6px", color: "#ccc" }}>
               {approvedUser.email}
             </p>
             <p style={{ margin: "0 0 10px", fontSize: 13, color: "#aaa" }}>
-              Freigegeben:{" "}
-              {new Date(approvedUser.created_at).toLocaleString("de-DE")}
+              {tx.approved}:{" "}
+              {new Date(approvedUser.created_at).toLocaleString(
+                language === "tr" ? "tr-TR" : language === "en" ? "en-US" : "de-DE"
+              )}
             </p>
             <button
               onClick={() =>
@@ -329,7 +340,7 @@ export default function AdminPage() {
                 fontWeight: "bold",
               }}
             >
-              Freigabe entfernen
+              {tx.remove}
             </button>
           </article>
         );

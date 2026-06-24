@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { text, useAppLanguage } from "../../lib/i18n";
 
 const NOTES = [
   { id: "c4", label: "C", staffStep: -2 },
@@ -16,7 +17,7 @@ const NOTES = [
 const SONGS = [
   {
     id: "joy",
-    name: "Ode an die Freude",
+    name: { de: "Ode an die Freude", en: "Ode to Joy", tr: "Neşeye Övgü" },
     notes: [
       "e4", "e4", "f4", "g4", "g4", "f4", "e4", "d4",
       "c4", "c4", "d4", "e4", "e4", "d4", "d4",
@@ -24,7 +25,7 @@ const SONGS = [
   },
   {
     id: "star",
-    name: "Funkel, funkel kleiner Stern",
+    name: { de: "Funkel, funkel kleiner Stern", en: "Twinkle, Twinkle, Little Star", tr: "Parla, Parla Küçük Yıldız" },
     notes: [
       "c4", "c4", "g4", "g4", "a4", "a4", "g4",
       "f4", "f4", "e4", "e4", "d4", "d4", "c4",
@@ -32,7 +33,7 @@ const SONGS = [
   },
   {
     id: "bells",
-    name: "Bruder Jakob",
+    name: { de: "Bruder Jakob", en: "Brother John", tr: "Frère Jacques" },
     notes: [
       "c4", "d4", "e4", "c4", "c4", "d4", "e4", "c4",
       "e4", "f4", "g4", "e4", "f4", "g4",
@@ -42,6 +43,44 @@ const SONGS = [
 
 const ROUND_COUNT = 10;
 const BEST_SCORE_KEY = "homework-helper-music-best-score";
+const MUSIC_TEXT = {
+  de: {
+    workshop: "Musikwerkstatt", title: "Klavier spielen", best: "Bestwert",
+    quiz: "Quiz", piano: "Klavier", songs: "Lieder", round: "Runde",
+    correct: "Richtig", streak: "Serie", done: "Training geschafft",
+    which: "Welche Note ist das?", again: "Noch einmal", free: "Freies Klavier",
+    melody: "Spiele deine eigene Melodie.", chooseSong: "Lied auswählen",
+    mistakes: "Fehler", finished: "Geschafft!", wholeSong: "Du hast das ganze Lied gespielt.",
+    playAgain: "Noch einmal spielen", nextNote: "Spiele die unterste leuchtende Note.",
+    pressKey: "Drücke die passende Taste.", right: "Richtig!", continue: "Super, weiter!",
+    tryNote: "Versuche", back: "Profil", sound: "Bitte Medienlautstärke erhöhen und den Stummmodus ausschalten.",
+    target: "Hier spielen", notesCorrect: "Noten richtig erkannt",
+  },
+  en: {
+    workshop: "Music workshop", title: "Play piano", best: "Best score",
+    quiz: "Quiz", piano: "Piano", songs: "Songs", round: "Round",
+    correct: "Correct", streak: "Streak", done: "Training complete",
+    which: "Which note is this?", again: "Try again", free: "Free piano",
+    melody: "Play your own melody.", chooseSong: "Choose a song",
+    mistakes: "Mistakes", finished: "Well done!", wholeSong: "You played the whole song.",
+    playAgain: "Play again", nextNote: "Play the lowest glowing note.",
+    pressKey: "Press the matching key.", right: "Correct!", continue: "Great, keep going!",
+    tryNote: "Try", back: "Profile", sound: "Please turn up media volume and disable silent mode.",
+    target: "Play here", notesCorrect: "notes identified correctly",
+  },
+  tr: {
+    workshop: "Müzik atölyesi", title: "Piyano çal", best: "En iyi",
+    quiz: "Test", piano: "Piyano", songs: "Şarkılar", round: "Tur",
+    correct: "Doğru", streak: "Seri", done: "Alıştırma tamamlandı",
+    which: "Bu hangi nota?", again: "Tekrar dene", free: "Serbest piyano",
+    melody: "Kendi melodini çal.", chooseSong: "Şarkı seç",
+    mistakes: "Hata", finished: "Başardın!", wholeSong: "Şarkının tamamını çaldın.",
+    playAgain: "Tekrar çal", nextNote: "En alttaki parlayan notayı çal.",
+    pressKey: "Uygun tuşa bas.", right: "Doğru!", continue: "Harika, devam et!",
+    tryNote: "Şunu dene", back: "Profil", sound: "Medya sesini yükselt ve sessiz modu kapat.",
+    target: "Burada çal", notesCorrect: "nota doğru tanındı",
+  },
+};
 
 function getRandomNote(previousId) {
   const choices = NOTES.filter((note) => note.id !== previousId);
@@ -100,12 +139,12 @@ function Piano({ onNote, selectedId = "", correctId = "" }) {
   );
 }
 
-function FallingNotes({ song, position }) {
+function FallingNotes({ song, position, targetLabel }) {
   const upcoming = song.notes.slice(position, position + 6);
 
   return (
     <div className="falling-notes" aria-label="Kommende Liednoten">
-      <div className="falling-notes__target">Hier spielen</div>
+      <div className="falling-notes__target">{targetLabel}</div>
       {NOTES.map((note) => (
         <span className="falling-notes__lane" key={note.id} />
       ))}
@@ -130,6 +169,8 @@ function FallingNotes({ song, position }) {
 }
 
 export default function MusicPage() {
+  const { language } = useAppLanguage();
+  const tx = text(MUSIC_TEXT, language);
   const [mode, setMode] = useState("quiz");
   const [target, setTarget] = useState(NOTES[0]);
   const [round, setRound] = useState(1);
@@ -184,7 +225,7 @@ export default function MusicPage() {
       setSoundMessage("");
     } catch {
       setSoundMessage(
-        "Bitte Medienlautstärke erhöhen und den Stummmodus ausschalten."
+        tx.sound
       );
     }
   }
@@ -207,7 +248,7 @@ export default function MusicPage() {
     const nextScore = score + (correct ? 1 : 0);
     setScore(nextScore);
     setStreak(correct ? streak + 1 : 0);
-    setFeedback(correct ? "Richtig!" : `Das war ${target.label}.`);
+    setFeedback(correct ? tx.right : `${target.label}`);
 
     if (!correct) window.setTimeout(() => playNote(target), 350);
 
@@ -240,10 +281,10 @@ export default function MusicPage() {
     const expectedId = song.notes[songPosition];
 
     if (note.id === expectedId) {
-      setFeedback("Super, weiter!");
+      setFeedback(tx.continue);
       setSongPosition((current) => current + 1);
     } else {
-      setFeedback(`Versuche ${getNote(expectedId).label}.`);
+      setFeedback(`${tx.tryNote} ${getNote(expectedId).label}.`);
       setSongMistakes((current) => current + 1);
     }
 
@@ -268,26 +309,26 @@ export default function MusicPage() {
         aria-label="Zurück zum Profil"
       >
         <span aria-hidden="true">‹</span>
-        Profil
+        {tx.back}
       </button>
 
       <header className="music-header">
         <div>
-          <span>Musikwerkstatt</span>
-          <h1>Klavier spielen</h1>
+          <span>{tx.workshop}</span>
+          <h1>{tx.title}</h1>
         </div>
         {mode === "quiz" && (
           <div className="music-best">
             <strong>{bestScore}/{ROUND_COUNT}</strong>
-            <span>Bestwert</span>
+            <span>{tx.best}</span>
           </div>
         )}
       </header>
 
       <div className="music-modes" role="tablist" aria-label="Musikmodus">
-        <button className={mode === "quiz" ? "is-active" : ""} onClick={() => setMode("quiz")}>Quiz</button>
-        <button className={mode === "free" ? "is-active" : ""} onClick={() => setMode("free")}>Klavier</button>
-        <button className={mode === "song" ? "is-active" : ""} onClick={() => setMode("song")}>Lieder</button>
+        <button className={mode === "quiz" ? "is-active" : ""} onClick={() => setMode("quiz")}>{tx.quiz}</button>
+        <button className={mode === "free" ? "is-active" : ""} onClick={() => setMode("free")}>{tx.piano}</button>
+        <button className={mode === "song" ? "is-active" : ""} onClick={() => setMode("song")}>{tx.songs}</button>
       </div>
 
       {soundMessage && <p className="music-sound-message">{soundMessage}</p>}
@@ -295,26 +336,26 @@ export default function MusicPage() {
       {mode === "quiz" && (
         <>
           <section className="music-scoreboard">
-            <div><strong>{finished ? ROUND_COUNT : round}/{ROUND_COUNT}</strong><span>Runde</span></div>
-            <div><strong>{score}</strong><span>Richtig</span></div>
-            <div><strong>{streak}</strong><span>Serie</span></div>
+            <div><strong>{finished ? ROUND_COUNT : round}/{ROUND_COUNT}</strong><span>{tx.round}</span></div>
+            <div><strong>{score}</strong><span>{tx.correct}</span></div>
+            <div><strong>{streak}</strong><span>{tx.streak}</span></div>
           </section>
           <section className="music-challenge">
             <div className="music-challenge__top">
-              <h2>{finished ? "Training geschafft" : "Welche Note ist das?"}</h2>
+              <h2>{finished ? tx.done : tx.which}</h2>
               {!finished && <button className="music-listen-button" onClick={() => playNote(target)} aria-label="Gesuchten Ton anhören">♪</button>}
             </div>
             {finished ? (
               <div className="music-result">
                 <strong>{score}/{ROUND_COUNT}</strong>
-                <p>{score} Noten richtig erkannt</p>
-                <button onClick={restartQuiz}>Noch einmal</button>
+                <p>{score} {tx.notesCorrect}</p>
+                <button onClick={restartQuiz}>{tx.again}</button>
               </div>
             ) : (
               <>
                 <NoteStaff note={target} />
-                <p className={`music-feedback${feedback === "Richtig!" ? " is-correct" : ""}`}>
-                  {feedback || "Drücke die passende Taste."}
+                <p className={`music-feedback${feedback === tx.right ? " is-correct" : ""}`}>
+                  {feedback || tx.pressKey}
                 </p>
               </>
             )}
@@ -328,8 +369,8 @@ export default function MusicPage() {
           <section className="free-piano-intro">
             <span aria-hidden="true">♫</span>
             <div>
-              <h2>Freies Klavier</h2>
-              <p>Spiele deine eigene Melodie.</p>
+              <h2>{tx.free}</h2>
+              <p>{tx.melody}</p>
             </div>
           </section>
           <Piano onNote={playFreeNote} selectedId={selectedId} />
@@ -339,26 +380,26 @@ export default function MusicPage() {
       {mode === "song" && (
         <>
           <label className="song-picker">
-            Lied auswählen
+            {tx.chooseSong}
             <select value={songId} onChange={(event) => resetSong(event.target.value)}>
-              {SONGS.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+              {SONGS.map((item) => <option value={item.id} key={item.id}>{text(item.name, language)}</option>)}
             </select>
           </label>
           <section className="song-status">
-            <strong>{song.name}</strong>
-            <span>{Math.min(songPosition, song.notes.length)} / {song.notes.length} Noten · {songMistakes} Fehler</span>
+            <strong>{text(song.name, language)}</strong>
+            <span>{Math.min(songPosition, song.notes.length)} / {song.notes.length} · {songMistakes} {tx.mistakes}</span>
           </section>
           {songFinished ? (
             <section className="song-finished">
-              <strong>Geschafft!</strong>
-              <p>Du hast das ganze Lied gespielt.</p>
-              <button onClick={() => resetSong()}>Noch einmal spielen</button>
+              <strong>{tx.finished}</strong>
+              <p>{tx.wholeSong}</p>
+              <button onClick={() => resetSong()}>{tx.playAgain}</button>
             </section>
           ) : (
             <>
-              <FallingNotes song={song} position={songPosition} />
-              <p className={`music-feedback${feedback === "Super, weiter!" ? " is-correct" : ""}`}>
-                {feedback || "Spiele die unterste leuchtende Note."}
+              <FallingNotes song={song} position={songPosition} targetLabel={tx.target} />
+              <p className={`music-feedback${feedback === tx.continue ? " is-correct" : ""}`}>
+                {feedback || tx.nextNote}
               </p>
               <Piano
                 onNote={playSongNote}

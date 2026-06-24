@@ -2,8 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { text, useAppLanguage } from "../../lib/i18n";
+
+const HISTORY_TEXT = {
+  de: { back: "Zurück zur App", title: "Meine Aufgaben", training: "Fehlertraining öffnen", loading: "Wird geladen...", loginInfo: "Bitte logge dich ein, um deinen Verlauf zu sehen.", login: "Einloggen", signedIn: "Eingeloggt als", logout: "Abmelden", empty: "Du hast noch keine gespeicherten Aufgaben.", check: "Lösung prüfen", explanation: "Erklärung", task: "Aufgabe", file: "Datei", answer: "Antwort", grade: "Klasse", loadError: "Fehler beim Laden" },
+  en: { back: "Back to app", title: "My tasks", training: "Open mistake practice", loading: "Loading...", loginInfo: "Please log in to view your history.", login: "Log in", signedIn: "Logged in as", logout: "Log out", empty: "You do not have any saved tasks yet.", check: "Check solution", explanation: "Explanation", task: "Task", file: "File", answer: "Answer", grade: "Grade", loadError: "Loading error" },
+  tr: { back: "Uygulamaya dön", title: "Ödevlerim", training: "Hata çalışmasını aç", loading: "Yükleniyor...", loginInfo: "Geçmişini görmek için giriş yap.", login: "Giriş yap", signedIn: "Giriş yapılan hesap", logout: "Çıkış yap", empty: "Henüz kaydedilmiş ödevin yok.", check: "Çözümü kontrol et", explanation: "Açıklama", task: "Ödev", file: "Dosya", answer: "Cevap", grade: "Sınıf", loadError: "Yükleme hatası" },
+};
 
 export default function HistoryPage() {
+  const { language } = useAppLanguage();
+  const tx = text(HISTORY_TEXT, language);
+  const locale = language === "tr" ? "tr-TR" : language === "en" ? "en-US" : "de-DE";
   const [user, setUser] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -35,7 +45,7 @@ export default function HistoryPage() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        setMessage("Fehler beim Laden: " + error.message);
+        setMessage(`${tx.loadError}: ${error.message}`);
       } else {
         setItems(data || []);
       }
@@ -44,7 +54,7 @@ export default function HistoryPage() {
     }
 
     loadHistory();
-  }, []);
+  }, [tx.loadError]);
 
   async function handleSignOut() {
     if (!supabase) return;
@@ -81,10 +91,10 @@ export default function HistoryPage() {
           marginBottom: 14,
         }}
       >
-        Zurück zur App
+        {tx.back}
       </button>
 
-      <h1 style={{ fontSize: 28, marginTop: 0 }}>Meine Aufgaben</h1>
+      <h1 style={{ fontSize: 28, marginTop: 0 }}>{tx.title}</h1>
 
       <button
         onClick={() => {
@@ -101,10 +111,10 @@ export default function HistoryPage() {
           marginBottom: 14,
         }}
       >
-        Fehlertraining öffnen
+        {tx.training}
       </button>
 
-      {loading && <p>Wird geladen...</p>}
+      {loading && <p>{tx.loading}</p>}
 
       {!loading && !user && (
         <div
@@ -116,7 +126,7 @@ export default function HistoryPage() {
           }}
         >
           <p style={{ marginTop: 0 }}>
-            Bitte logge dich ein, um deinen Verlauf zu sehen.
+            {tx.loginInfo}
           </p>
           <button
             onClick={() => {
@@ -132,7 +142,7 @@ export default function HistoryPage() {
               fontWeight: "bold",
             }}
           >
-            Einloggen
+            {tx.login}
           </button>
         </div>
       )}
@@ -140,7 +150,7 @@ export default function HistoryPage() {
       {!loading && user && (
         <>
           <p style={{ fontSize: 14, color: "#ccc" }}>
-            Eingeloggt als: {user.email}
+            {tx.signedIn}: {user.email}
           </p>
 
           <button
@@ -156,13 +166,13 @@ export default function HistoryPage() {
               marginBottom: 16,
             }}
           >
-            Abmelden
+            {tx.logout}
           </button>
 
           {message && <p>{message}</p>}
 
           {items.length === 0 && !message && (
-            <p>Du hast noch keine gespeicherten Aufgaben.</p>
+            <p>{tx.empty}</p>
           )}
 
           {items.map((item) => (
@@ -177,15 +187,15 @@ export default function HistoryPage() {
               }}
             >
               <p style={{ margin: "0 0 8px", color: "#bbb", fontSize: 13 }}>
-                {new Date(item.created_at).toLocaleString("de-DE")} | Klasse{" "}
+                {new Date(item.created_at).toLocaleString(locale)} | {tx.grade}{" "}
                 {item.grade} | {item.subject}
               </p>
               <p style={{ margin: "0 0 8px", fontWeight: "bold" }}>
-                {item.mode === "check" ? "Lösung prüfen" : "Erklärung"}
+                {item.mode === "check" ? tx.check : tx.explanation}
               </p>
               {item.task && (
                 <>
-                  <p style={{ marginBottom: 6, color: "#ccc" }}>Aufgabe:</p>
+                  <p style={{ marginBottom: 6, color: "#ccc" }}>{tx.task}:</p>
                   <pre
                     style={{
                       whiteSpace: "pre-wrap",
@@ -198,9 +208,9 @@ export default function HistoryPage() {
                 </>
               )}
               {item.file_name && (
-                <p style={{ color: "#ccc" }}>Datei: {item.file_name}</p>
+                <p style={{ color: "#ccc" }}>{tx.file}: {item.file_name}</p>
               )}
-              <p style={{ marginBottom: 6, color: "#ccc" }}>Antwort:</p>
+              <p style={{ marginBottom: 6, color: "#ccc" }}>{tx.answer}:</p>
               <pre
                 style={{
                   whiteSpace: "pre-wrap",

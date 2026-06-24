@@ -2,8 +2,44 @@
 
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { text, useAppLanguage } from "../../lib/i18n";
+
+const LOGIN_TEXT = {
+  de: {
+    intro: "Gib deine E-Mail-Adresse und dein Passwort ein. Den Namen brauchst du nur bei der ersten Login-Anfrage.",
+    name: "Name oder Nickname", email: "E-Mail-Adresse", password: "Passwort",
+    wait: "Bitte warten...", login: "Einloggen", forgot: "Passwort vergessen?",
+    resetInfo: "Gib deine E-Mail-Adresse oder deinen Namen ein. Du bekommst einen Link, um ein neues Passwort zu erstellen.",
+    emailOrName: "E-Mail oder Name", sendReset: "Reset-Link senden",
+    unknown: "Unbekannt", processed: "Anfrage wurde verarbeitet.", resetSent: "Reset-Link wurde gesendet.",
+    rateLimit: "Zu viele E-Mails in kurzer Zeit. Bitte warte ein paar Minuten und versuche es dann erneut.",
+    supabase: "Supabase ist noch nicht konfiguriert.",
+  },
+  en: {
+    intro: "Enter your email address and password. Your name is only needed for the first login request.",
+    name: "Name or nickname", email: "Email address", password: "Password",
+    wait: "Please wait...", login: "Log in", forgot: "Forgot password?",
+    resetInfo: "Enter your email address or name. You will receive a link to create a new password.",
+    emailOrName: "Email or name", sendReset: "Send reset link",
+    unknown: "Unknown", processed: "Request processed.", resetSent: "Reset link sent.",
+    rateLimit: "Too many emails in a short time. Please wait a few minutes and try again.",
+    supabase: "Supabase is not configured yet.",
+  },
+  tr: {
+    intro: "E-posta adresini ve şifreni gir. İsim yalnızca ilk giriş isteğinde gereklidir.",
+    name: "İsim veya kullanıcı adı", email: "E-posta adresi", password: "Şifre",
+    wait: "Lütfen bekle...", login: "Giriş yap", forgot: "Şifreni mi unuttun?",
+    resetInfo: "E-posta adresini veya ismini gir. Yeni şifre oluşturmak için bir bağlantı alacaksın.",
+    emailOrName: "E-posta veya isim", sendReset: "Sıfırlama bağlantısı gönder",
+    unknown: "Bilinmiyor", processed: "İstek işlendi.", resetSent: "Sıfırlama bağlantısı gönderildi.",
+    rateLimit: "Kısa sürede çok fazla e-posta gönderildi. Birkaç dakika bekleyip tekrar dene.",
+    supabase: "Supabase henüz yapılandırılmadı.",
+  },
+};
 
 export default function LoginPage() {
+  const { language } = useAppLanguage();
+  const tx = text(LOGIN_TEXT, language);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +54,7 @@ export default function LoginPage() {
 
     try {
       if (!supabase) {
-        setMessage("Fehler: Supabase ist noch nicht konfiguriert.");
+        setMessage(`Fehler: ${tx.supabase}`);
         setLoading(false);
         return;
       }
@@ -36,7 +72,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage("Fehler: " + (data?.error || "Unbekannt"));
+        setMessage("Fehler: " + (data?.error || tx.unknown));
       } else if (data?.session) {
         const { error } = await supabase.auth.setSession({
           access_token: data.session.access_token,
@@ -49,10 +85,10 @@ export default function LoginPage() {
           window.location.href = "/";
         }
       } else {
-        setMessage(data?.message || "Anfrage wurde verarbeitet.");
+        setMessage(data?.message || tx.processed);
       }
     } catch (error) {
-      setMessage("Fehler: " + (error?.message || "Unbekannt"));
+      setMessage("Fehler: " + (error?.message || tx.unknown));
     }
 
     setLoading(false);
@@ -74,18 +110,18 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        const errorMessage = data?.error || "Unbekannt";
+        const errorMessage = data?.error || tx.unknown;
         setMessage(
           "Fehler: " +
             (errorMessage.toLowerCase().includes("rate limit")
-              ? "Zu viele E-Mails in kurzer Zeit. Bitte warte ein paar Minuten und versuche es dann erneut."
+              ? tx.rateLimit
               : errorMessage)
         );
       } else {
-        setMessage(data?.message || "Reset-Link wurde gesendet.");
+        setMessage(data?.message || tx.resetSent);
       }
     } catch (error) {
-      setMessage("Fehler: " + (error?.message || "Unbekannt"));
+      setMessage("Fehler: " + (error?.message || tx.unknown));
     }
 
     setLoading(false);
@@ -105,14 +141,11 @@ export default function LoginPage() {
     >
       <h1>Login</h1>
 
-      <p>
-        Gib deine E-Mail-Adresse und dein Passwort ein. Den Namen brauchst du
-        nur bei der ersten Login-Anfrage.
-      </p>
+      <p>{tx.intro}</p>
 
       <input
         type="text"
-        placeholder="Name oder Nickname"
+        placeholder={tx.name}
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
         style={{
@@ -128,7 +161,7 @@ export default function LoginPage() {
 
       <input
         type="email"
-        placeholder="E-Mail-Adresse"
+        placeholder={tx.email}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         style={{
@@ -144,7 +177,7 @@ export default function LoginPage() {
 
       <input
         type="password"
-        placeholder="Passwort"
+        placeholder={tx.password}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         style={{
@@ -172,7 +205,7 @@ export default function LoginPage() {
           color: "white",
         }}
       >
-        {loading ? "Bitte warten..." : "Einloggen"}
+        {loading ? tx.wait : tx.login}
       </button>
 
       <button
@@ -192,7 +225,7 @@ export default function LoginPage() {
           marginTop: 12,
         }}
       >
-        Passwort vergessen?
+        {tx.forgot}
       </button>
 
       {showReset && (
@@ -205,13 +238,10 @@ export default function LoginPage() {
             border: "1px solid #333",
           }}
         >
-          <p style={{ marginTop: 0 }}>
-            Gib deine E-Mail-Adresse oder deinen Namen ein. Du bekommst einen
-            Link, um ein neues Passwort zu erstellen.
-          </p>
+          <p style={{ marginTop: 0 }}>{tx.resetInfo}</p>
           <input
             type="text"
-            placeholder="E-Mail oder Name"
+            placeholder={tx.emailOrName}
             value={resetLoginId}
             onChange={(e) => setResetLoginId(e.target.value)}
             style={{
@@ -238,7 +268,7 @@ export default function LoginPage() {
               color: "white",
             }}
           >
-            Reset-Link senden
+            {tx.sendReset}
           </button>
         </div>
       )}
