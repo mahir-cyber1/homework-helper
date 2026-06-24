@@ -75,7 +75,7 @@ export default function MusicPage() {
     };
   }, []);
 
-  function playNote(note) {
+  async function playNote(note) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
 
@@ -84,6 +84,11 @@ export default function MusicPage() {
     }
 
     const context = audioContextRef.current;
+
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     const now = context.currentTime;
@@ -109,10 +114,10 @@ export default function MusicPage() {
     }
   }
 
-  function selectNote(note) {
+  async function selectNote(note) {
     if (selectedId || finished) return;
 
-    playNote(note);
+    await playNote(note);
     setSelectedId(note.id);
     const correct = note.id === target.id;
     const nextScore = score + (correct ? 1 : 0);
@@ -120,6 +125,12 @@ export default function MusicPage() {
     setScore(nextScore);
     setStreak(correct ? streak + 1 : 0);
     setFeedback(correct ? "Richtig!" : `Das war ${target.label}.`);
+
+    if (!correct) {
+      window.setTimeout(() => {
+        playNote(target);
+      }, 350);
+    }
 
     window.setTimeout(() => {
       if (round >= ROUND_COUNT) {
@@ -180,7 +191,7 @@ export default function MusicPage() {
               className="music-listen-button"
               onClick={() => playNote(target)}
               aria-label="Gesuchten Ton anhören"
-              title="Ton anhören"
+              title="Gesuchten Ton anhören"
             >
               ♪
             </button>
@@ -202,7 +213,8 @@ export default function MusicPage() {
               }`}
               aria-live="polite"
             >
-              {feedback || "Drücke die passende Taste."}
+              {feedback ||
+                "Drücke eine Taste. Der Ton wird dabei vorgespielt."}
             </p>
           </>
         )}
