@@ -3,6 +3,8 @@ import OpenAI from "openai";
 export const runtime = "nodejs";
 
 const requestLimit = new Map();
+const PLANT_CHECK_LIMIT = 5;
+const PLANT_CHECK_WINDOW_MS = 60 * 60 * 1000;
 
 function getJsonFromText(text) {
   const cleaned = String(text || "")
@@ -23,7 +25,7 @@ const languageSettings = {
     noCorrection: "Der Nutzer hat die Pflanzenart noch nicht korrigiert.",
     correctionPrefix: "Der Nutzer meint oder korrigiert",
     missingImage: "Bitte ein Foto der Pflanze hochladen.",
-    limit: "Limit erreicht. Bitte in 1 Stunde erneut versuchen.",
+    limit: "Limit erreicht. Pro IP-Adresse sind 5 Pflanzenchecks pro Stunde möglich.",
     missingKey: "OPENAI_API_KEY fehlt in den Umgebungsvariablen.",
   },
   en: {
@@ -33,7 +35,7 @@ const languageSettings = {
     noCorrection: "The user has not corrected the plant species yet.",
     correctionPrefix: "The user thinks or corrects",
     missingImage: "Please upload a photo of the plant.",
-    limit: "Limit reached. Please try again in 1 hour.",
+    limit: "Limit reached. Each IP address can use 5 plant checks per hour.",
     missingKey: "OPENAI_API_KEY is missing from the environment variables.",
   },
   tr: {
@@ -43,47 +45,45 @@ const languageSettings = {
     noCorrection: "Kullanıcı bitki türünü henüz düzeltmedi.",
     correctionPrefix: "Kullanıcı şöyle düşünüyor veya düzeltiyor",
     missingImage: "Lütfen bitkinin bir fotoğrafını yükle.",
-    limit: "Limit doldu. Lütfen 1 saat sonra tekrar dene.",
+    limit: "Limit doldu. Her IP adresi saatte 5 bitki kontrolü yapabilir.",
     missingKey: "OPENAI_API_KEY ortam değişkenlerinde eksik.",
   },
 };
 
 export async function POST(req) {
+  const {
+    imageData,
+    userPlantName,
+    symptoms,
+    location,
+    language = "de",
+  } = await req.json();
+  const selectedLanguage = languageSettings[language] || languageSettings.de;
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("x-real-ip") ||
     "local";
 
   const now = Date.now();
-  const hour = 60 * 60 * 1000;
   let entry = requestLimit.get(ip);
-  if (!entry) entry = { count: 0, resetAt: now + hour };
+  if (!entry) entry = { count: 0, resetAt: now + PLANT_CHECK_WINDOW_MS };
 
   if (now > entry.resetAt) {
     entry.count = 0;
-    entry.resetAt = now + hour;
+    entry.resetAt = now + PLANT_CHECK_WINDOW_MS;
   }
 
   entry.count += 1;
   requestLimit.set(ip, entry);
 
-  if (entry.count > 20) {
+  if (entry.count > PLANT_CHECK_LIMIT) {
     return Response.json(
-      { error: languageSettings.de.limit },
+      { error: selectedLanguage.limit },
       { status: 429 }
     );
   }
 
   try {
-    const {
-      imageData,
-      userPlantName,
-      symptoms,
-      location,
-      language = "de",
-    } = await req.json();
-    const selectedLanguage = languageSettings[language] || languageSettings.de;
-
     if (!process.env.OPENAI_API_KEY) {
       return Response.json(
         { error: selectedLanguage.missingKey },
