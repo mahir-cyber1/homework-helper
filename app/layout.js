@@ -17,14 +17,14 @@ export const metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ||
       "https://homework-helper-psi.vercel.app"
   ),
-  title: "Hausaufgaben Hilfe",
-  description: "KI Hausaufgaben Hilfe",
-  applicationName: "Hausaufgaben Hilfe",
+  title: "Pflanzencheck",
+  description: "KI-Hilfe zum Erkennen von Pflanzen und möglichen Blattkrankheiten",
+  applicationName: "Pflanzencheck",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Hausaufgaben",
+    title: "Pflanzencheck",
   },
   formatDetection: {
     telephone: false,
@@ -36,8 +36,8 @@ export const metadata = {
   },
 
   openGraph: {
-    title: "Homework Helper",
-    description: "KI Hausaufgaben Hilfe für Kinder",
+    title: "Pflanzencheck",
+    description: "KI-Hilfe zum Erkennen von Pflanzen und möglichen Blattkrankheiten",
     images: [
       {
         url: "/icon2.png",

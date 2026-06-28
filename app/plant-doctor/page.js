@@ -10,6 +10,11 @@ const translations = {
     en: "Language",
     tr: "Dil",
   },
+  languageManual: {
+    de: "Manuell ändern",
+    en: "Change manually",
+    tr: "Manuel değiştir",
+  },
   badge: {
     de: "Pflanzencheck",
     en: "Plant check",
@@ -29,6 +34,11 @@ const translations = {
     de: "Foto aufnehmen",
     en: "Take photo",
     tr: "Fotoğraf çek",
+  },
+  photoIcon: {
+    de: "Kamera",
+    en: "Camera",
+    tr: "Kamera",
   },
   photoHint: {
     de: "Blätter, Stängel und kranke Stellen möglichst scharf zeigen.",
@@ -136,6 +146,12 @@ const confidenceMap = {
   "yüksek": "high",
 };
 
+const languageOptions = [
+  { code: "de", label: "DE" },
+  { code: "en", label: "EN" },
+  { code: "tr", label: "TR" },
+];
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -241,20 +257,26 @@ export default function PlantDoctorPage() {
         <div>
           <div className={styles.topLine}>
             <span>{t("badge")}</span>
-            <label className={styles.languagePicker}>
-              {t("languageLabel")}
-              <select
-                value={language}
-                onChange={(event) => {
-                  setLanguage(event.target.value);
-                  setResult(null);
-                }}
-              >
-                <option value="de">Deutsch</option>
-                <option value="en">English</option>
-                <option value="tr">Türkçe</option>
-              </select>
-            </label>
+            <div
+              className={styles.languagePicker}
+              role="group"
+              aria-label={t("languageLabel")}
+            >
+              <span>{t("languageManual")}</span>
+              {languageOptions.map((option) => (
+                <button
+                  className={language === option.code ? styles.isActive : ""}
+                  key={option.code}
+                  onClick={() => {
+                    setLanguage(option.code);
+                    setResult(null);
+                  }}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
           <h1>{t("title")}</h1>
         </div>
@@ -273,6 +295,10 @@ export default function PlantDoctorPage() {
             <img alt={t("imageAlt")} src={imageData} />
           ) : (
             <div>
+              <span className={styles.cameraIcon} aria-hidden="true">
+                <span />
+              </span>
+              <small>{t("photoIcon")}</small>
               <strong>{t("photoAction")}</strong>
               <span>{t("photoHint")}</span>
             </div>

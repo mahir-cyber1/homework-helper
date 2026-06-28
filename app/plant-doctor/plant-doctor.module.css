@@ -40,7 +40,11 @@
   font-weight: 800;
 }
 
-.languagePicker select {
+.languagePicker > span {
+  display: none;
+}
+
+.languagePicker button {
   min-height: 34px;
   border: 1px solid #344036;
   border-radius: 8px;
@@ -48,12 +52,16 @@
   color: #f7fff4;
   font: inherit;
   font-size: 13px;
+  font-weight: 900;
   outline: none;
-  padding: 0 8px;
+  padding: 0 10px;
 }
 
-.languagePicker select:focus {
+.languagePicker button:focus,
+.languagePicker button.isActive {
   border-color: #9ed784;
+  background: #9ed784;
+  color: #10170f;
   box-shadow: 0 0 0 3px rgba(158, 215, 132, 0.16);
 }
 
@@ -106,7 +114,55 @@
   gap: 8px;
   max-width: 270px;
   padding: 22px;
+  place-items: center;
   text-align: center;
+}
+
+.cameraIcon {
+  position: relative;
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  border: 2px solid #9ed784;
+  border-radius: 50%;
+  background: rgba(158, 215, 132, 0.1);
+  box-shadow: 0 0 0 8px rgba(158, 215, 132, 0.06);
+}
+
+.cameraIcon::before {
+  position: absolute;
+  width: 34px;
+  height: 25px;
+  border: 3px solid #d7f3cb;
+  border-radius: 7px;
+  content: "";
+}
+
+.cameraIcon::after {
+  position: absolute;
+  top: 19px;
+  width: 17px;
+  height: 7px;
+  border-radius: 4px 4px 1px 1px;
+  background: #d7f3cb;
+  content: "";
+}
+
+.cameraIcon span {
+  z-index: 1;
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #d7f3cb;
+  border-radius: 50%;
+}
+
+.photoPicker small {
+  color: #9ed784;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .photoPicker strong {
@@ -321,5 +377,11 @@
   .grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
+  }
+}
+
+@media (min-width: 390px) {
+  .languagePicker > span {
+    display: inline;
   }
 }

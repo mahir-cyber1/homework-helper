@@ -13,8 +13,8 @@ import {
 
 const NAV_ITEMS = [
   { href: "/", label: { de: "Start", en: "Home", tr: "Ana sayfa" }, icon: "⌂" },
-  { href: "/plant-doctor", label: { de: "Pflanzen", en: "Plants", tr: "Bitki" }, icon: "✦" },
-  { href: "/history", label: { de: "Aufgaben", en: "Tasks", tr: "Ödevler" }, icon: "▤" },
+  { href: "/plant-doctor", label: { de: "Scan", en: "Scan", tr: "Tara" }, icon: "◉" },
+  { href: "/history", label: { de: "Verlauf", en: "History", tr: "Geçmiş" }, icon: "▤" },
   { href: "/profile", label: { de: "Profil", en: "Profile", tr: "Profil" }, icon: "●" },
 ];
 

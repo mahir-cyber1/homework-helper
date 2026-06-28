@@ -1,8 +1,8 @@
 export default function manifest() {
   return {
-    name: "Hausaufgaben Hilfe",
-    short_name: "Hausaufgaben",
-    description: "KI-Hilfe zum Erklären und Prüfen von Hausaufgaben",
+    name: "Pflanzencheck",
+    short_name: "Pflanzen",
+    description: "KI-Hilfe zum Erkennen von Pflanzen und möglichen Blattkrankheiten",
     start_url: "/",
     display: "standalone",
     background_color: "#090b10",
