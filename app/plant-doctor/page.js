@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { text, useAppLanguage } from "../../lib/i18n";
 import styles from "./plant-doctor.module.css";
+
+const PLANT_HISTORY_KEY = "plant-doctor-history";
 
 const translations = {
   languageLabel: {
@@ -34,6 +36,16 @@ const translations = {
     de: "Foto aufnehmen",
     en: "Take photo",
     tr: "Fotoğraf çek",
+  },
+  galleryAction: {
+    de: "Aus Galerie wählen",
+    en: "Choose from gallery",
+    tr: "Galeriden seç",
+  },
+  changePhoto: {
+    de: "Foto ändern",
+    en: "Change photo",
+    tr: "Fotoğrafı değiştir",
   },
   photoIcon: {
     de: "Kamera",
@@ -194,8 +206,28 @@ function Confidence({ language, value }) {
   );
 }
 
+function savePlantHistory(entry) {
+  if (typeof window === "undefined") return;
+
+  const current = JSON.parse(
+    window.localStorage.getItem(PLANT_HISTORY_KEY) || "[]"
+  );
+  const next = [
+    {
+      ...entry,
+      id: window.crypto?.randomUUID?.() || String(Date.now()),
+      createdAt: new Date().toISOString(),
+    },
+    ...current,
+  ].slice(0, 30);
+
+  window.localStorage.setItem(PLANT_HISTORY_KEY, JSON.stringify(next));
+}
+
 export default function PlantDoctorPage() {
   const { language, setLanguage } = useAppLanguage();
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
   const [imageData, setImageData] = useState("");
   const [fileName, setFileName] = useState("");
   const [plantCorrection, setPlantCorrection] = useState("");
@@ -244,6 +276,15 @@ export default function PlantDoctorPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || t("fallbackError"));
       setResult(data.result);
+      savePlantHistory({
+        fileName,
+        imageData,
+        language,
+        location,
+        plantCorrection,
+        result: data.result,
+        symptoms,
+      });
     } catch (currentError) {
       setError(String(currentError?.message || currentError));
     } finally {
@@ -284,26 +325,56 @@ export default function PlantDoctorPage() {
       </section>
 
       <form className={styles.workspace} onSubmit={analyzePlant}>
-        <label className={styles.photoPicker}>
+        <div className={styles.photoPicker}>
           <input
             accept="image/*"
             capture="environment"
             onChange={handleFileChange}
+            ref={cameraInputRef}
+            type="file"
+          />
+          <input
+            accept="image/*"
+            onChange={handleFileChange}
+            ref={galleryInputRef}
             type="file"
           />
           {imageData ? (
-            <img alt={t("imageAlt")} src={imageData} />
+            <>
+              <img alt={t("imageAlt")} src={imageData} />
+              <div className={styles.photoOverlay}>
+                <button
+                  onClick={() => galleryInputRef.current?.click()}
+                  type="button"
+                >
+                  {t("changePhoto")}
+                </button>
+              </div>
+            </>
           ) : (
             <div>
               <span className={styles.cameraIcon} aria-hidden="true">
                 <span />
               </span>
               <small>{t("photoIcon")}</small>
-              <strong>{t("photoAction")}</strong>
               <span>{t("photoHint")}</span>
+              <div className={styles.photoActions}>
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  type="button"
+                >
+                  {t("photoAction")}
+                </button>
+                <button
+                  onClick={() => galleryInputRef.current?.click()}
+                  type="button"
+                >
+                  {t("galleryAction")}
+                </button>
+              </div>
             </div>
           )}
-        </label>
+        </div>
 
         <div className={styles.controls}>
           <label>

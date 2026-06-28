@@ -1,66 +1,65 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useState } from "react";
 import { text, useAppLanguage } from "../../lib/i18n";
 
+const PLANT_HISTORY_KEY = "plant-doctor-history";
+
 const HISTORY_TEXT = {
-  de: { back: "Zurück zur App", title: "Meine Aufgaben", training: "Fehlertraining öffnen", loading: "Wird geladen...", loginInfo: "Bitte logge dich ein, um deinen Verlauf zu sehen.", login: "Einloggen", signedIn: "Eingeloggt als", logout: "Abmelden", empty: "Du hast noch keine gespeicherten Aufgaben.", check: "Lösung prüfen", explanation: "Erklärung", task: "Aufgabe", file: "Datei", answer: "Antwort", grade: "Klasse", loadError: "Fehler beim Laden" },
-  en: { back: "Back to app", title: "My tasks", training: "Open mistake practice", loading: "Loading...", loginInfo: "Please log in to view your history.", login: "Log in", signedIn: "Logged in as", logout: "Log out", empty: "You do not have any saved tasks yet.", check: "Check solution", explanation: "Explanation", task: "Task", file: "File", answer: "Answer", grade: "Grade", loadError: "Loading error" },
-  tr: { back: "Uygulamaya dön", title: "Ödevlerim", training: "Hata çalışmasını aç", loading: "Yükleniyor...", loginInfo: "Geçmişini görmek için giriş yap.", login: "Giriş yap", signedIn: "Giriş yapılan hesap", logout: "Çıkış yap", empty: "Henüz kaydedilmiş ödevin yok.", check: "Çözümü kontrol et", explanation: "Açıklama", task: "Ödev", file: "Dosya", answer: "Cevap", grade: "Sınıf", loadError: "Yükleme hatası" },
+  de: {
+    back: "Zurück zum Pflanzencheck",
+    title: "Pflanzen-Verlauf",
+    empty: "Du hast noch keine Pflanzenanalyse gespeichert.",
+    clear: "Verlauf löschen",
+    plant: "Pflanze",
+    symptoms: "Beobachtung",
+    location: "Standort",
+    causes: "Mögliche Ursachen",
+    care: "Was du tun kannst",
+    prevention: "Vorbeugung",
+    unknown: "Unbekannt",
+  },
+  en: {
+    back: "Back to plant check",
+    title: "Plant history",
+    empty: "You do not have any saved plant analyses yet.",
+    clear: "Clear history",
+    plant: "Plant",
+    symptoms: "Observation",
+    location: "Location",
+    causes: "Possible causes",
+    care: "What you can do",
+    prevention: "Prevention",
+    unknown: "Unknown",
+  },
+  tr: {
+    back: "Bitki kontrolüne dön",
+    title: "Bitki geçmişi",
+    empty: "Henüz kaydedilmiş bitki analizin yok.",
+    clear: "Geçmişi sil",
+    plant: "Bitki",
+    symptoms: "Gözlem",
+    location: "Konum",
+    causes: "Olası nedenler",
+    care: "Ne yapabilirsin",
+    prevention: "Önleme",
+    unknown: "Bilinmiyor",
+  },
 };
 
 export default function HistoryPage() {
   const { language } = useAppLanguage();
   const tx = text(HISTORY_TEXT, language);
-  const locale = language === "tr" ? "tr-TR" : language === "en" ? "en-US" : "de-DE";
-  const [user, setUser] = useState(null);
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(Boolean(supabase));
-  const [message, setMessage] = useState(
-    supabase ? "" : "Supabase ist noch nicht konfiguriert."
-  );
+  const locale =
+    language === "tr" ? "tr-TR" : language === "en" ? "en-US" : "de-DE";
+  const [items, setItems] = useState(() => {
+    if (typeof window === "undefined") return [];
+    return JSON.parse(window.localStorage.getItem(PLANT_HISTORY_KEY) || "[]");
+  });
 
-  useEffect(() => {
-    if (!supabase) {
-      return undefined;
-    }
-
-    async function loadHistory() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      setUser(user);
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("homework_history")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        setMessage(`${tx.loadError}: ${error.message}`);
-      } else {
-        setItems(data || []);
-      }
-
-      setLoading(false);
-    }
-
-    loadHistory();
-  }, [tx.loadError]);
-
-  async function handleSignOut() {
-    if (!supabase) return;
-
-    await supabase.auth.signOut();
-    window.location.href = "/";
+  function clearHistory() {
+    window.localStorage.removeItem(PLANT_HISTORY_KEY);
+    setItems([]);
   }
 
   return (
@@ -71,8 +70,8 @@ export default function HistoryPage() {
         minHeight: "100vh",
         padding: 20,
         fontFamily: "Arial, sans-serif",
-        backgroundColor: "#111",
-        color: "white",
+        backgroundColor: "#0d1110",
+        color: "#f4f7f2",
         borderRadius: 24,
       }}
     >
@@ -83,9 +82,9 @@ export default function HistoryPage() {
         style={{
           width: "100%",
           padding: "12px",
-          borderRadius: "10px",
-          border: "none",
-          backgroundColor: "#333",
+          borderRadius: 8,
+          border: "1px solid #344036",
+          backgroundColor: "#161d18",
           color: "white",
           fontWeight: "bold",
           marginBottom: 14,
@@ -94,136 +93,110 @@ export default function HistoryPage() {
         {tx.back}
       </button>
 
-      <h1 style={{ fontSize: 28, marginTop: 0 }}>{tx.title}</h1>
+      <h1 style={{ fontSize: 28, margin: "0 0 14px" }}>{tx.title}</h1>
 
-      <button
-        onClick={() => {
-          window.location.href = "/training";
-        }}
-        style={{
-          width: "100%",
-          padding: 12,
-          borderRadius: 8,
-          border: "none",
-          backgroundColor: "#fb8c00",
-          color: "white",
-          fontWeight: "bold",
-          marginBottom: 14,
-        }}
-      >
-        {tx.training}
-      </button>
-
-      {loading && <p>{tx.loading}</p>}
-
-      {!loading && !user && (
-        <div
+      {items.length > 0 && (
+        <button
+          onClick={clearHistory}
           style={{
-            padding: 14,
-            borderRadius: 12,
-            backgroundColor: "#1b1b1b",
-            border: "1px solid #333",
+            width: "100%",
+            padding: 12,
+            borderRadius: 8,
+            border: "none",
+            backgroundColor: "#31402f",
+            color: "white",
+            fontWeight: "bold",
+            marginBottom: 14,
           }}
         >
-          <p style={{ marginTop: 0 }}>
-            {tx.loginInfo}
-          </p>
-          <button
-            onClick={() => {
-              window.location.href = "/login";
-            }}
-            style={{
-              width: "100%",
-              padding: "12px",
-              borderRadius: "10px",
-              border: "none",
-              backgroundColor: "#1976d2",
-              color: "white",
-              fontWeight: "bold",
-            }}
-          >
-            {tx.login}
-          </button>
-        </div>
+          {tx.clear}
+        </button>
       )}
 
-      {!loading && user && (
-        <>
-          <p style={{ fontSize: 14, color: "#ccc" }}>
-            {tx.signedIn}: {user.email}
-          </p>
+      {items.length === 0 && (
+        <p style={{ color: "#b9c3b2", lineHeight: 1.5 }}>{tx.empty}</p>
+      )}
 
-          <button
-            onClick={handleSignOut}
-            style={{
-              width: "100%",
-              padding: "12px",
-              borderRadius: "10px",
-              border: "none",
-              backgroundColor: "#444",
-              color: "white",
-              fontWeight: "bold",
-              marginBottom: 16,
-            }}
-          >
-            {tx.logout}
-          </button>
-
-          {message && <p>{message}</p>}
-
-          {items.length === 0 && !message && (
-            <p>{tx.empty}</p>
+      {items.map((item) => (
+        <article
+          key={item.id}
+          style={{
+            display: "grid",
+            gap: 10,
+            padding: 14,
+            borderRadius: 8,
+            backgroundColor: "#141b16",
+            border: "1px solid #2f3c32",
+            marginBottom: 14,
+          }}
+        >
+          {item.imageData && (
+            <img
+              alt=""
+              src={item.imageData}
+              style={{
+                width: "100%",
+                maxHeight: 220,
+                objectFit: "cover",
+                borderRadius: 8,
+              }}
+            />
           )}
 
-          {items.map((item) => (
-            <article
-              key={item.id}
-              style={{
-                padding: 14,
-                borderRadius: 12,
-                backgroundColor: "#1b1b1b",
-                border: "1px solid #333",
-                marginBottom: 14,
-              }}
-            >
-              <p style={{ margin: "0 0 8px", color: "#bbb", fontSize: 13 }}>
-                {new Date(item.created_at).toLocaleString(locale)} | {tx.grade}{" "}
-                {item.grade} | {item.subject}
-              </p>
-              <p style={{ margin: "0 0 8px", fontWeight: "bold" }}>
-                {item.mode === "check" ? tx.check : tx.explanation}
-              </p>
-              {item.task && (
-                <>
-                  <p style={{ marginBottom: 6, color: "#ccc" }}>{tx.task}:</p>
-                  <pre
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      fontFamily: "Arial, sans-serif",
-                      marginTop: 0,
-                    }}
-                  >
-                    {item.task}
-                  </pre>
-                </>
-              )}
-              {item.file_name && (
-                <p style={{ color: "#ccc" }}>{tx.file}: {item.file_name}</p>
-              )}
-              <p style={{ marginBottom: 6, color: "#ccc" }}>{tx.answer}:</p>
-              <pre
-                style={{
-                  whiteSpace: "pre-wrap",
-                  fontFamily: "Arial, sans-serif",
-                  margin: 0,
-                }}
-              >
-                {item.answer}
-              </pre>
-            </article>
-          ))}
-        </>
-      )}
+          <p style={{ margin: 0, color: "#91a08d", fontSize: 13 }}>
+            {new Date(item.createdAt).toLocaleString(locale)}
+          </p>
+
+          <h2 style={{ margin: 0, fontSize: 22 }}>
+            {item.result?.plantGuess || tx.unknown}
+          </h2>
+
+          {item.symptoms && (
+            <p style={{ margin: 0, color: "#d7e2d1" }}>
+              <strong>{tx.symptoms}:</strong> {item.symptoms}
+            </p>
+          )}
+
+          {item.location && (
+            <p style={{ margin: 0, color: "#d7e2d1" }}>
+              <strong>{tx.location}:</strong> {item.location}
+            </p>
+          )}
+
+          <section>
+            <h3 style={{ margin: "4px 0 8px", fontSize: 16 }}>
+              {tx.causes}
+            </h3>
+            <ul style={{ margin: 0, paddingLeft: 20, color: "#d7e2d1" }}>
+              {item.result?.possibleCauses?.map((cause) => (
+                <li key={`${item.id}-${cause.name}`}>
+                  <strong>{cause.name}:</strong> {cause.why}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h3 style={{ margin: "4px 0 8px", fontSize: 16 }}>{tx.care}</h3>
+            <ol style={{ margin: 0, paddingLeft: 20, color: "#d7e2d1" }}>
+              {item.result?.careSteps?.map((step) => (
+                <li key={`${item.id}-${step}`}>{step}</li>
+              ))}
+            </ol>
+          </section>
+
+          <section>
+            <h3 style={{ margin: "4px 0 8px", fontSize: 16 }}>
+              {tx.prevention}
+            </h3>
+            <ul style={{ margin: 0, paddingLeft: 20, color: "#d7e2d1" }}>
+              {item.result?.prevention?.map((step) => (
+                <li key={`${item.id}-${step}`}>{step}</li>
+              ))}
+            </ul>
+          </section>
+        </article>
+      ))}
     </main>
   );
 }
