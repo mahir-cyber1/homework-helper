@@ -15,6 +15,39 @@ function getJsonFromText(text) {
   return JSON.parse(cleaned);
 }
 
+const languageSettings = {
+  de: {
+    name: "Deutsch",
+    none: "(keine)",
+    noLocation: "(nicht angegeben)",
+    noCorrection: "Der Nutzer hat die Pflanzenart noch nicht korrigiert.",
+    correctionPrefix: "Der Nutzer meint oder korrigiert",
+    missingImage: "Bitte ein Foto der Pflanze hochladen.",
+    limit: "Limit erreicht. Bitte in 1 Stunde erneut versuchen.",
+    missingKey: "OPENAI_API_KEY fehlt in den Umgebungsvariablen.",
+  },
+  en: {
+    name: "English",
+    none: "(none)",
+    noLocation: "(not provided)",
+    noCorrection: "The user has not corrected the plant species yet.",
+    correctionPrefix: "The user thinks or corrects",
+    missingImage: "Please upload a photo of the plant.",
+    limit: "Limit reached. Please try again in 1 hour.",
+    missingKey: "OPENAI_API_KEY is missing from the environment variables.",
+  },
+  tr: {
+    name: "Türkçe",
+    none: "(yok)",
+    noLocation: "(belirtilmedi)",
+    noCorrection: "Kullanıcı bitki türünü henüz düzeltmedi.",
+    correctionPrefix: "Kullanıcı şöyle düşünüyor veya düzeltiyor",
+    missingImage: "Lütfen bitkinin bir fotoğrafını yükle.",
+    limit: "Limit doldu. Lütfen 1 saat sonra tekrar dene.",
+    missingKey: "OPENAI_API_KEY ortam değişkenlerinde eksik.",
+  },
+};
+
 export async function POST(req) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -36,32 +69,39 @@ export async function POST(req) {
 
   if (entry.count > 20) {
     return Response.json(
-      { error: "Limit erreicht. Bitte in 1 Stunde erneut versuchen." },
+      { error: languageSettings.de.limit },
       { status: 429 }
     );
   }
 
   try {
+    const {
+      imageData,
+      userPlantName,
+      symptoms,
+      location,
+      language = "de",
+    } = await req.json();
+    const selectedLanguage = languageSettings[language] || languageSettings.de;
+
     if (!process.env.OPENAI_API_KEY) {
       return Response.json(
-        { error: "OPENAI_API_KEY fehlt in den Umgebungsvariablen." },
+        { error: selectedLanguage.missingKey },
         { status: 500 }
       );
     }
 
-    const { imageData, userPlantName, symptoms, location } = await req.json();
-
     if (!imageData) {
       return Response.json(
-        { error: "Bitte ein Foto der Pflanze hochladen." },
+        { error: selectedLanguage.missingImage },
         { status: 400 }
       );
     }
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const correctionText = userPlantName
-      ? `Der Nutzer meint oder korrigiert: ${userPlantName}`
-      : "Der Nutzer hat die Pflanzenart noch nicht korrigiert.";
+      ? `${selectedLanguage.correctionPrefix}: ${userPlantName}`
+      : selectedLanguage.noCorrection;
 
     const response = await client.responses.create({
       model: "gpt-4.1-mini",
@@ -70,7 +110,7 @@ export async function POST(req) {
           role: "system",
           content: `
 Du bist ein vorsichtiger Pflanzen- und Baumdiagnose-Assistent für Hobbygärtner.
-Antworte auf Deutsch.
+Antworte vollständig auf: ${selectedLanguage.name}.
 
 Regeln:
 - Erkenne zuerst die wahrscheinlich sichtbare Pflanze oder den Baum.
@@ -81,17 +121,20 @@ Regeln:
 - Empfiehl bei starkem Befall, essbaren Pflanzen oder unklaren Mitteln eine lokale Gärtnerei, Pflanzenschutzberatung oder Fachstelle.
 - Erfinde keine Live-Internetsuche und keine konkreten Webquellen. Diese App-Version nutzt Bildanalyse und botanisches Wissen.
 - Keine gefährlichen Chemikalienmischungen, keine übertriebenen Pestizidempfehlungen.
+- Wenn der Nutzer Text in einer anderen Sprache eingibt, übersetze und beantworte trotzdem auf ${selectedLanguage.name}.
+- Textwerte wie Namen, Begründungen, Schritte, Fragen und Hinweise müssen auf ${selectedLanguage.name} sein.
+- Die Felder "plantConfidence" und "likelihood" müssen immer exakt einen dieser englischen Codes enthalten: "low", "medium", "high".
 
 Gib ausschließlich valides JSON mit genau diesen Feldern zurück:
 {
   "plantGuess": "kurzer Name",
-  "plantConfidence": "niedrig|mittel|hoch",
+  "plantConfidence": "low|medium|high",
   "confirmQuestion": "kurze Frage, ob die Pflanze stimmt",
   "visibleSymptoms": ["..."],
   "possibleCauses": [
     {
       "name": "Krankbild oder Ursache",
-      "likelihood": "niedrig|mittel|hoch",
+      "likelihood": "low|medium|high",
       "why": "kurze Begründung"
     }
   ],
@@ -109,8 +152,8 @@ Gib ausschließlich valides JSON mit genau diesen Feldern zurück:
               type: "input_text",
               text: `
 ${correctionText}
-Zusatzangaben des Nutzers: ${symptoms || "(keine)"}
-Standort/Kontext: ${location || "(nicht angegeben)"}
+Zusatzangaben des Nutzers: ${symptoms || selectedLanguage.none}
+Standort/Kontext: ${location || selectedLanguage.noLocation}
 
 Analysiere das Foto und berücksichtige eine Nutzer-Korrektur stärker als deine erste Pflanzenerkennung.
 `,
