@@ -31,8 +31,8 @@ export const metadata = {
   },
 
   icons: {
-    icon: "/icon2.png",
-    apple: "/icon2.png",
+    icon: "/plant-icon-192.png",
+    apple: "/plant-icon-512.png",
   },
 
   openGraph: {
@@ -40,11 +40,17 @@ export const metadata = {
     description: "KI-Hilfe zum Erkennen von Pflanzen und möglichen Blattkrankheiten",
     images: [
       {
-        url: "/icon2.png",
-        width: 512,
-        height: 512,
+        url: "/plant-og.png",
+        width: 1200,
+        height: 630,
       },
     ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pflanzencheck",
+    description: "KI-Hilfe zum Erkennen von Pflanzen und möglichen Blattkrankheiten",
+    images: ["/plant-og.png"],
   },
 };
 
