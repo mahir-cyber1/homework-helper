@@ -19,6 +19,27 @@ const NAV_ITEMS = [
   { href: "/profile", label: { de: "Profil", en: "Profile", tr: "Profil" }, icon: "●" },
 ];
 
+const SIGN_NAV_ITEMS = [
+  {
+    href: "/gebaerdensprache?mode=live",
+    mode: "live",
+    label: { de: "Live", en: "Live", tr: "Canlı" },
+    icon: "◉",
+  },
+  {
+    href: "/gebaerdensprache?mode=train",
+    mode: "train",
+    label: { de: "Training", en: "Train", tr: "Eğitim" },
+    icon: "✋",
+  },
+  {
+    href: "/login",
+    mode: "login",
+    label: { de: "Login", en: "Login", tr: "Giriş" },
+    icon: "●",
+  },
+];
+
 const VISIBLE_PATHS = new Set([
   "/",
   "/plant-doctor",
@@ -30,8 +51,8 @@ const VISIBLE_PATHS = new Set([
   "/league",
   "/profile",
   "/admin",
+  "/login",
 ]);
-const ADMIN_EMAILS = ["genckurecikli@gmail.com"];
 
 export default function AppNavigation() {
   const pathname = usePathname();
@@ -40,6 +61,7 @@ export default function AppNavigation() {
   const [avatarId, setAvatarId] = useState("star");
   const [frameId, setFrameId] = useState("none");
   const [themeId, setThemeId] = useState("blue");
+  const [currentMode, setCurrentMode] = useState("live");
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -80,25 +102,56 @@ export default function AppNavigation() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mode = new URLSearchParams(window.location.search).get("mode");
+    setCurrentMode(mode === "train" ? "train" : "live");
+  }, [pathname]);
+
   if (!VISIBLE_PATHS.has(pathname)) return null;
 
-  const isAdmin = ADMIN_EMAILS.includes(
-    String(user?.email || "").trim().toLowerCase()
-  );
+  const signUsername = String(user?.user_metadata?.sign_username || "");
+  const isAdmin =
+    String(user?.user_metadata?.role || "").toLowerCase() === "admin" ||
+    signUsername.trim().toLowerCase() === "memed" ||
+    String(user?.email || "").trim().toLowerCase() === "memed@sign.local";
   const profileAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
   const profileFrame = getProfileFrame(frameId);
   const profileTheme = getProfileTheme(themeId);
+  const isSignPath =
+    pathname === "/sign-translate" ||
+    pathname === "/gebärdensprache" ||
+    pathname === "/gebaerdensprache";
+  const navItems = isSignPath
+    ? SIGN_NAV_ITEMS.map((item) =>
+        item.mode === "login" && user
+          ? {
+              ...item,
+              href: isAdmin ? "/admin" : "/profile",
+              label: isAdmin
+                ? { de: "Admin", en: "Admin", tr: "Admin" }
+                : { de: "Profil", en: "Profile", tr: "Profil" },
+            }
+          : item
+      )
+    : NAV_ITEMS;
 
   return (
     <nav
       className="app-bottom-nav no-print"
       aria-label="App Navigation"
-      style={{ "--app-accent": profileTheme.color }}
+      style={{
+        "--app-accent": profileTheme.color,
+        gridTemplateColumns: `repeat(${navItems.length}, 1fr)`,
+      }}
     >
-      {NAV_ITEMS.map((item) => {
+      {navItems.map((item) => {
         const href =
           item.href === "/profile" && isAdmin ? "/admin" : item.href;
         const isActive =
+          (isSignPath && item.mode && item.mode === currentMode) ||
+          (item.mode === "login" &&
+            (pathname === "/login" || pathname === "/admin")) ||
           pathname === href ||
           (item.href === "/sign-translate" &&
             (pathname === "/gebärdensprache" ||

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import styles from "./sign-translate.module.css";
 
@@ -104,16 +105,24 @@ export default function SignTranslatePage() {
   const streamRef = useRef(null);
   const recorderRef = useRef(null);
   const captureTimerRef = useRef(null);
+  const liveResultTimerRef = useRef(null);
   const previousFrameRef = useRef(null);
   const samplesRef = useRef([]);
   const chunksRef = useRef([]);
   const startedAtRef = useRef(0);
   const videoUrlRef = useRef("");
+  const router = useRouter();
 
   const [cameraState, setCameraState] = useState("idle");
+  const [mode, setMode] = useState("live");
   const [isRecording, setIsRecording] = useState(false);
+  const [isLive, setIsLive] = useState(false);
   const [trainingEntries, setTrainingEntries] = useState(() => loadTrainingEntries());
   const [currentResult, setCurrentResult] = useState(null);
+  const [liveResult, setLiveResult] = useState({
+    text: "Noch keine Live-Uebersetzung",
+    confidence: 0,
+  });
   const [correctedText, setCorrectedText] = useState("");
   const [status, setStatus] = useState("Kamera starten, dann eine kurze Gebaerde aufnehmen.");
   const [cloudStatus, setCloudStatus] = useState("Lokales Training aktiv.");
@@ -177,9 +186,16 @@ export default function SignTranslatePage() {
     return () => {
       cancelled = true;
       window.clearInterval(captureTimerRef.current);
+      window.clearInterval(liveResultTimerRef.current);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nextMode = new URLSearchParams(window.location.search).get("mode");
+    setMode(nextMode === "train" ? "train" : "live");
   }, []);
 
   async function startCamera() {
@@ -299,6 +315,41 @@ export default function SignTranslatePage() {
     }
   }
 
+  function startLiveMode() {
+    if (!streamRef.current || isLive) return;
+
+    samplesRef.current = [];
+    previousFrameRef.current = null;
+    startedAtRef.current = Date.now();
+    setIsLive(true);
+    setLiveResult({ text: "Ich hoere zu...", confidence: 0 });
+    setStatus("Live-Modus laeuft. Die App vergleicht Bewegungen mit gespeicherten Trainingsbeispielen.");
+
+    captureTimerRef.current = window.setInterval(sampleFrame, 180);
+    liveResultTimerRef.current = window.setInterval(() => {
+      const recentSamples = samplesRef.current.slice(-MAX_SAMPLES);
+      const features = normalizeVector(recentSamples);
+      const durationMs = Date.now() - startedAtRef.current;
+      const suggestion = buildSuggestion(trainingEntries, features, durationMs);
+
+      setLiveResult(suggestion);
+    }, 1800);
+  }
+
+  function stopLiveMode() {
+    window.clearInterval(captureTimerRef.current);
+    window.clearInterval(liveResultTimerRef.current);
+    setIsLive(false);
+    setStatus("Live-Modus gestoppt.");
+  }
+
+  function switchMode(nextMode) {
+    if (isRecording) stopRecording();
+    if (isLive) stopLiveMode();
+    setMode(nextMode);
+    router.push(`/gebaerdensprache?mode=${nextMode}`);
+  }
+
   async function saveCorrection() {
     const text = correctedText.trim();
     if (!text || !currentResult?.features?.length) {
@@ -383,12 +434,34 @@ export default function SignTranslatePage() {
     <main className={styles.page}>
       <section className={styles.header}>
         <span>DGS Prototyp</span>
-        <h1>Gebaerden aufnehmen, Text korrigieren, App trainieren.</h1>
+        <h1>
+          {mode === "live"
+            ? "Live uebersetzen mit deinen Trainingsdaten."
+            : "Video aufnehmen, Text korrigieren, App trainieren."}
+        </h1>
         <p>
-          Diese erste Version sammelt deine Korrekturen lokal im Browser und nutzt
-          sie direkt fuer neue Vorschlaege.
+          {mode === "live"
+            ? "Der Live-Modus nutzt die gespeicherten Korrekturen als einfache Wiedererkennung."
+            : "Der Trainingsmodus sammelt korrigierte Beispiele lokal und in Supabase."}
         </p>
       </section>
+
+      <div className={styles.modeTabs} role="tablist" aria-label="Modus">
+        <button
+          type="button"
+          className={mode === "live" ? styles.activeMode : ""}
+          onClick={() => switchMode("live")}
+        >
+          Live
+        </button>
+        <button
+          type="button"
+          className={mode === "train" ? styles.activeMode : ""}
+          onClick={() => switchMode("train")}
+        >
+          Training
+        </button>
+      </div>
 
       <section className={styles.cameraPanel} aria-label="Kamera und Aufnahme">
         <div className={styles.videoFrame}>
@@ -406,6 +479,14 @@ export default function SignTranslatePage() {
           {cameraState !== "ready" ? (
             <button type="button" onClick={startCamera} className={styles.primaryButton}>
               Kamera starten
+            </button>
+          ) : mode === "live" ? (
+            <button
+              type="button"
+              onClick={isLive ? stopLiveMode : startLiveMode}
+              className={isLive ? styles.stopButton : styles.primaryButton}
+            >
+              {isLive ? "Live stoppen" : "Live starten"}
             </button>
           ) : (
             <>
@@ -432,6 +513,19 @@ export default function SignTranslatePage() {
         <p className={styles.cloudStatus}>{cloudStatus}</p>
       </section>
 
+      {mode === "live" ? (
+        <section className={styles.livePanel}>
+          <div className={styles.panelHeader}>
+            <span>Live Text</span>
+            <strong>{liveResult.confidence || 0}%</strong>
+          </div>
+          <p className={styles.liveText}>{liveResult.text}</p>
+          <p className={styles.emptyState}>
+            Wenn der Live-Text falsch ist, wechsle in Training, nimm die
+            Gebaerde auf und speichere die richtige Bedeutung.
+          </p>
+        </section>
+      ) : (
       <section className={styles.resultGrid}>
         <div className={styles.resultPanel}>
           <div className={styles.panelHeader}>
@@ -495,6 +589,7 @@ export default function SignTranslatePage() {
           </div>
         </div>
       </section>
+      )}
     </main>
   );
 }

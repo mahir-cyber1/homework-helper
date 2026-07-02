@@ -1,51 +1,22 @@
-import { randomBytes } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const EXTRA_ADMIN_EMAILS = ["genckurecikli@gmail.com"];
+const ADMIN_USERNAME = "Memed";
+const ADMIN_PASSWORD = "Ferdi4434";
+const LOGIN_DOMAIN = "sign.local";
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
+function normalizeUsername(username) {
+  return String(username || "").trim().slice(0, 50);
 }
 
-function isAdminEmailAddress(email) {
-  const normalizedEmail = normalizeEmail(email);
-  const envAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
-
-  return (
-    normalizedEmail &&
-    (normalizedEmail === envAdminEmail ||
-      EXTRA_ADMIN_EMAILS.includes(normalizedEmail))
-  );
+function getUsernameKey(username) {
+  return normalizeUsername(username).toLowerCase();
 }
 
-function normalizeDisplayName(displayName) {
-  return String(displayName || "").trim().slice(0, 60);
-}
-
-function getDisplayNameKey(displayName) {
-  return normalizeDisplayName(displayName).toLowerCase();
-}
-
-function isMissingDisplayNameKeyError(error) {
-  const message = String(error?.message || "");
-
-  return (
-    message.includes("display_name_key") &&
-    (message.includes("schema cache") ||
-      message.includes("column") ||
-      message.includes("Could not find"))
-  );
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function getLoginEmail(username) {
+  const key = getUsernameKey(username).replace(/[^a-z0-9._-]/g, "-");
+  return `${key || "user"}@${LOGIN_DOMAIN}`;
 }
 
 function getAdminClient() {
@@ -76,130 +47,63 @@ function getPublicClient() {
   });
 }
 
-async function sendApprovalEmail({ email, displayName, approvalUrl }) {
-  const resendKey = process.env.RESEND_API_KEY;
-  const adminEmail = process.env.ADMIN_EMAIL;
-  const from =
-    process.env.RESEND_FROM_EMAIL || "Homework Helper <onboarding@resend.dev>";
+async function ensureAdminUser(adminClient) {
+  const usernameKey = getUsernameKey(ADMIN_USERNAME);
+  const email = getLoginEmail(ADMIN_USERNAME);
 
-  if (!resendKey || !adminEmail) {
-    return {
-      sent: false,
-      reason: "RESEND_API_KEY oder ADMIN_EMAIL fehlt.",
-    };
+  const { data: existing } = await adminClient
+    .from("sign_app_users")
+    .select("username_key,auth_user_id")
+    .eq("username_key", usernameKey)
+    .maybeSingle();
+
+  if (existing?.auth_user_id) {
+    await adminClient.from("sign_app_users").upsert({
+      username_key: usernameKey,
+      username: ADMIN_USERNAME,
+      auth_user_id: existing.auth_user_id,
+      role: "admin",
+      active: true,
+      updated_at: new Date().toISOString(),
+    });
+    return;
   }
 
-  const safeEmail = escapeHtml(email);
-  const safeDisplayName = escapeHtml(displayName);
-  const safeApprovalUrl = escapeHtml(approvalUrl);
+  const { data: created, error: createError } =
+    await adminClient.auth.admin.createUser({
+      email,
+      password: ADMIN_PASSWORD,
+      email_confirm: true,
+      user_metadata: {
+        display_name: ADMIN_USERNAME,
+        sign_username: ADMIN_USERNAME,
+        role: "admin",
+      },
+    });
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: adminEmail,
-      subject: "Neue Login-Freigabe fuer Homework Helper",
-      html: `
-        <h2>Neue Login-Anfrage</h2>
-        <p>Diese Person moechte sich einloggen:</p>
-        <p>Name: <strong>${safeDisplayName}</strong></p>
-        <p><strong>${safeEmail}</strong></p>
-        <p>
-          <a href="${safeApprovalUrl}" style="display:inline-block;padding:12px 18px;background:#1976d2;color:white;text-decoration:none;border-radius:8px;">
-            E-Mail freigeben
-          </a>
-        </p>
-        <p>Falls der Button nicht funktioniert, diesen Link oeffnen:</p>
-        <p>${safeApprovalUrl}</p>
-      `,
-    }),
+  if (createError && !String(createError.message || "").includes("already")) {
+    throw createError;
+  }
+
+  await adminClient.from("sign_app_users").upsert({
+    username_key: usernameKey,
+    username: ADMIN_USERNAME,
+    auth_user_id: created?.user?.id || existing?.auth_user_id || null,
+    role: "admin",
+    active: true,
+    updated_at: new Date().toISOString(),
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    return { sent: false, reason: text };
-  }
-
-  return { sent: true };
-}
-
-async function createApprovalRequest({
-  adminClient,
-  req,
-  email,
-  displayName,
-}) {
-  const displayNameKey = getDisplayNameKey(displayName);
-  const token = randomBytes(32).toString("hex");
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    req.headers.get("origin") ||
-    new URL(req.url).origin;
-  const approvalUrl = `${origin}/api/approve-login?token=${token}`;
-
-  const requestPayload = {
-    email,
-    display_name: displayName,
-    display_name_key: displayNameKey,
-    token,
-    status: "pending",
-    requested_at: new Date().toISOString(),
-    approved_at: null,
-  };
-
-  const { error: requestError } = await adminClient
-    .from("login_access_requests")
-    .upsert(requestPayload, { onConflict: "email" });
-
-  if (isMissingDisplayNameKeyError(requestError)) {
-    delete requestPayload.display_name_key;
-
-    const { error: fallbackError } = await adminClient
-      .from("login_access_requests")
-      .upsert(requestPayload, { onConflict: "email" });
-
-    if (fallbackError) {
-      return { error: fallbackError.message, status: 500 };
-    }
-  } else if (requestError) {
-    return { error: requestError.message, status: 500 };
-  }
-
-  const mailResult = await sendApprovalEmail({
-    email,
-    displayName,
-    approvalUrl,
-  });
-
-  if (!mailResult.sent) {
-    console.error("Approval email failed:", mailResult.reason);
-
-    return {
-      error:
-        "Login-Anfrage wurde gespeichert, aber die Freigabe-Mail konnte nicht gesendet werden. Bitte Resend- und Vercel-Einstellungen pruefen.",
-      status: 500,
-    };
-  }
-
-  return {
-    message:
-      "Deine Login-Anfrage wurde gesendet. Nach Freigabe kannst du dich mit diesem Passwort einloggen.",
-  };
 }
 
 export async function POST(req) {
   try {
-    const { email, displayName, password } = await req.json();
-    const normalizedEmail = normalizeEmail(email);
-    const normalizedDisplayName = normalizeDisplayName(displayName);
+    const { displayName, username, password } = await req.json();
+    const finalUsername = normalizeUsername(username || displayName);
+    const usernameKey = getUsernameKey(finalUsername);
 
-    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    if (finalUsername.length < 2) {
       return Response.json(
-        { error: "Bitte eine gueltige E-Mail-Adresse eingeben." },
+        { error: "Bitte Name oder Benutzername eingeben." },
         { status: 400 }
       );
     }
@@ -221,145 +125,54 @@ export async function POST(req) {
       );
     }
 
-    const { data: approved, error: approvedError } = await adminClient
-      .from("approved_login_emails")
-      .select("email,display_name")
-      .eq("email", normalizedEmail)
+    await ensureAdminUser(adminClient);
+
+    const { data: appUser, error: appUserError } = await adminClient
+      .from("sign_app_users")
+      .select("username,username_key,auth_user_id,role,active")
+      .eq("username_key", usernameKey)
       .maybeSingle();
 
-    if (approvedError) {
-      return Response.json({ error: approvedError.message }, { status: 500 });
+    if (appUserError) {
+      return Response.json({ error: appUserError.message }, { status: 500 });
     }
 
-    const isAdminEmail = isAdminEmailAddress(normalizedEmail);
-    const loginAllowed = approved || isAdminEmail;
-    const finalDisplayName =
-      approved?.display_name || normalizedDisplayName || normalizedEmail;
-
-    if (!loginAllowed) {
-      if (normalizedDisplayName.length < 2) {
-        return Response.json(
-          {
-            error:
-              "Diese E-Mail ist noch nicht freigegeben. Bitte Name oder Nickname eingeben, damit der Admin dich erkennen kann.",
-          },
-          { status: 400 }
-        );
-      }
-
-      const displayNameKey = getDisplayNameKey(normalizedDisplayName);
-
-      const [{ data: profileMatch }, { data: approvedMatch }, { data: requestMatch }] =
-        await Promise.all([
-          adminClient
-            .from("user_profiles")
-            .select("user_id")
-            .eq("display_name_key", displayNameKey)
-            .neq("email", normalizedEmail)
-            .maybeSingle(),
-          adminClient
-            .from("approved_login_emails")
-            .select("email")
-            .eq("display_name_key", displayNameKey)
-            .neq("email", normalizedEmail)
-            .maybeSingle(),
-          adminClient
-            .from("login_access_requests")
-            .select("email")
-            .eq("display_name_key", displayNameKey)
-            .neq("email", normalizedEmail)
-            .maybeSingle(),
-        ]);
-
-      if (profileMatch || approvedMatch || requestMatch) {
-        return Response.json(
-          {
-            error:
-              "Dieser Name existiert bereits. Bitte waehle einen anderen Namen.",
-          },
-          { status: 409 }
-        );
-      }
-
-      const result = await createApprovalRequest({
-        adminClient,
-        req,
-        email: normalizedEmail,
-        displayName: normalizedDisplayName,
-      });
-
-      if (result.error) {
-        return Response.json({ error: result.error }, { status: result.status });
-      }
-
-      return Response.json({ message: result.message });
+    if (!appUser || !appUser.active) {
+      return Response.json(
+        { error: "Dieser Benutzer ist nicht freigegeben." },
+        { status: 403 }
+      );
     }
 
-    if (isAdminEmail && !approved) {
-      const approvalPayload = {
-        email: normalizedEmail,
-        display_name: finalDisplayName,
-        display_name_key: getDisplayNameKey(finalDisplayName),
-      };
-
-      const { error: adminApprovalError } = await adminClient
-        .from("approved_login_emails")
-        .upsert(approvalPayload, { onConflict: "email" });
-
-      if (isMissingDisplayNameKeyError(adminApprovalError)) {
-        delete approvalPayload.display_name_key;
-        await adminClient
-          .from("approved_login_emails")
-          .upsert(approvalPayload, { onConflict: "email" });
-      }
-    }
-
-    let signInResult = await publicClient.auth.signInWithPassword({
-      email: normalizedEmail,
+    const email = getLoginEmail(appUser.username);
+    const signInResult = await publicClient.auth.signInWithPassword({
+      email,
       password,
     });
 
-    if (signInResult.error) {
-      const { error: createError } = await adminClient.auth.admin.createUser({
-        email: normalizedEmail,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          display_name: finalDisplayName,
-        },
-      });
-
-      if (createError) {
-        return Response.json(
-          {
-            error:
-              "Login fehlgeschlagen. Falls du schon ein Passwort hast, pruefe bitte dein Passwort.",
-          },
-          { status: 401 }
-        );
-      }
-
-      signInResult = await publicClient.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-    }
-
     if (signInResult.error || !signInResult.data.session) {
       return Response.json(
-        { error: signInResult.error?.message || "Login fehlgeschlagen." },
+        { error: "Name oder Passwort ist falsch." },
         { status: 401 }
       );
     }
 
-    const user = signInResult.data.user;
+    const authUser = signInResult.data.user;
+    const now = new Date().toISOString();
+
+    if (!appUser.auth_user_id) {
+      await adminClient
+        .from("sign_app_users")
+        .update({ auth_user_id: authUser.id, updated_at: now })
+        .eq("username_key", usernameKey);
+    }
 
     await adminClient.from("user_profiles").upsert({
-      user_id: user.id,
-      email: normalizedEmail,
-      display_name: finalDisplayName,
-      display_name_key: getDisplayNameKey(finalDisplayName),
-      updated_at: new Date().toISOString(),
+      user_id: authUser.id,
+      email,
+      display_name: appUser.username,
+      display_name_key: usernameKey,
+      updated_at: now,
     });
 
     return Response.json({

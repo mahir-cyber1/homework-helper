@@ -2,26 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { text, useAppLanguage } from "../../lib/i18n";
-
-const ADMIN_TEXT = {
-  de: { back: "Zurück zur App", signedIn: "Eingeloggt als", loading: "Wird geladen...", users: "Benutzer", waiting: "Warten", pending: "Warten auf Freigabe", noPending: "Keine offenen Login-Anfragen.", unnamed: "Ohne Namen", approve: "Freigeben", reject: "Ablehnen", noUsers: "Noch keine freigegebenen Benutzer.", login: "Einloggen", approved: "Freigegeben", remove: "Freigabe entfernen" },
-  en: { back: "Back to app", signedIn: "Logged in as", loading: "Loading...", users: "Users", waiting: "Waiting", pending: "Waiting for approval", noPending: "No pending login requests.", unnamed: "No name", approve: "Approve", reject: "Reject", noUsers: "No approved users yet.", login: "Log in", approved: "Approved", remove: "Remove approval" },
-  tr: { back: "Uygulamaya dön", signedIn: "Giriş yapılan hesap", loading: "Yükleniyor...", users: "Kullanıcılar", waiting: "Bekleyen", pending: "Onay bekleyenler", noPending: "Açık giriş isteği yok.", unnamed: "İsimsiz", approve: "Onayla", reject: "Reddet", noUsers: "Henüz onaylanmış kullanıcı yok.", login: "Giriş yap", approved: "Onaylandı", remove: "Onayı kaldır" },
-};
 
 export default function AdminPage() {
-  const { language } = useAppLanguage();
-  const tx = text(ADMIN_TEXT, language);
   const [user, setUser] = useState(null);
-  const [requests, setRequests] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
   const [users, setUsers] = useState([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(
     supabase ? "" : "Supabase ist nicht konfiguriert."
   );
-  const [busyId, setBusyId] = useState("");
 
   const getAccessToken = useCallback(async () => {
     if (!supabase) return "";
@@ -33,7 +25,7 @@ export default function AdminPage() {
     return session?.access_token || "";
   }, []);
 
-  const loadRequests = useCallback(async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     setMessage("");
 
@@ -54,10 +46,8 @@ export default function AdminPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      setMessage(data?.error || "Admin-Anfragen konnten nicht geladen werden.");
+      setMessage(data?.error || "Benutzer konnten nicht geladen werden.");
     } else {
-      setRequests(data?.requests || []);
-      setPendingRequests(data?.pendingRequests || []);
       setUsers(data?.users || []);
     }
 
@@ -65,9 +55,7 @@ export default function AdminPage() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    if (!supabase) {
-      return undefined;
-    }
+    if (!supabase) return undefined;
 
     async function init() {
       const {
@@ -75,25 +63,61 @@ export default function AdminPage() {
       } = await supabase.auth.getUser();
 
       setUser(user);
-      await loadRequests();
+      await loadUsers();
     }
 
     init();
-  }, [loadRequests]);
+  }, [loadUsers]);
 
-  async function updateRequest(id, action, email = "") {
-    setBusyId(id || email);
+  async function saveUser() {
+    setSaving(true);
     setMessage("");
 
     const token = await getAccessToken();
-
     const res = await fetch("/api/admin/requests", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ id, action, email }),
+      body: JSON.stringify({
+        action: "create",
+        username,
+        password,
+        role,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMessage(data?.error || "Benutzer konnte nicht gespeichert werden.");
+    } else {
+      setUsername("");
+      setPassword("");
+      setRole("user");
+      setMessage("Benutzer gespeichert.");
+      await loadUsers();
+    }
+
+    setSaving(false);
+  }
+
+  async function setActive(appUser, active) {
+    setSaving(true);
+    setMessage("");
+
+    const token = await getAccessToken();
+    const res = await fetch("/api/admin/requests", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: active ? "activate" : "remove",
+        username: appUser.username,
+      }),
     });
 
     const data = await res.json();
@@ -101,10 +125,10 @@ export default function AdminPage() {
     if (!res.ok) {
       setMessage(data?.error || "Aktion fehlgeschlagen.");
     } else {
-      await loadRequests();
+      await loadUsers();
     }
 
-    setBusyId("");
+    setSaving(false);
   }
 
   return (
@@ -115,46 +139,43 @@ export default function AdminPage() {
         minHeight: "100vh",
         padding: 20,
         fontFamily: "Arial, sans-serif",
-        backgroundColor: "#111",
+        backgroundColor: "#0d1016",
         color: "white",
-        borderRadius: 24,
       }}
     >
       <button
         onClick={() => {
-          window.location.href = "/";
+          window.location.href = "/gebaerdensprache";
         }}
         style={{
           width: "100%",
           padding: "12px",
-          borderRadius: "10px",
-          border: "none",
-          backgroundColor: "#333",
+          borderRadius: 8,
+          border: "1px solid #334052",
+          backgroundColor: "#141924",
           color: "white",
           fontWeight: "bold",
           marginBottom: 14,
         }}
       >
-        {tx.back}
+        Zur App
       </button>
 
       <h1 style={{ fontSize: 28, marginTop: 0 }}>Admin</h1>
 
       {user && (
-        <p style={{ color: "#ccc", fontSize: 14 }}>
-          {tx.signedIn}: {user.email}
+        <p style={{ color: "#b9c1cf", fontSize: 14 }}>
+          Eingeloggt als: {user.user_metadata?.sign_username || user.email}
         </p>
       )}
-
-      {loading && <p>{tx.loading}</p>}
 
       {message && (
         <div
           style={{
             padding: 12,
-            borderRadius: 12,
-            backgroundColor: "#1b1b1b",
-            border: "1px solid #333",
+            borderRadius: 8,
+            backgroundColor: "#141924",
+            border: "1px solid #28313d",
             marginBottom: 14,
           }}
         >
@@ -167,184 +188,130 @@ export default function AdminPage() {
               style={{
                 width: "100%",
                 padding: "12px",
-                borderRadius: "10px",
+                borderRadius: 8,
                 border: "none",
-                backgroundColor: "#1976d2",
-                color: "white",
+                backgroundColor: "#1fb895",
+                color: "#07100d",
                 fontWeight: "bold",
               }}
             >
-              {tx.login}
+              Einloggen
             </button>
           )}
         </div>
       )}
 
-      {!loading && !message && (
-        <div
+      {!loading && !message.includes("einloggen") && (
+        <section
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
             gap: 10,
-            marginBottom: 16,
+            padding: 14,
+            borderRadius: 8,
+            backgroundColor: "#141924",
+            border: "1px solid #28313d",
+            marginBottom: 18,
           }}
         >
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: "#1b1b1b",
-              border: "1px solid #333",
-            }}
+          <h2 style={{ margin: 0, fontSize: 20 }}>Benutzer anlegen</h2>
+          <input
+            type="text"
+            placeholder="Name"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            style={inputStyle}
+          />
+          <input
+            type="password"
+            placeholder="Passwort"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            style={inputStyle}
+          />
+          <select
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
+            style={inputStyle}
           >
-            <p style={{ margin: "0 0 4px", color: "#aaa", fontSize: 13 }}>
-              {tx.users}
-            </p>
-            <p style={{ margin: 0, fontSize: 24, fontWeight: "bold" }}>
-              {users.length}
-            </p>
-          </div>
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: "#1b1b1b",
-              border: "1px solid #333",
-            }}
+            <option value="user">Benutzer</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button
+            onClick={saveUser}
+            disabled={saving || username.trim().length < 2 || password.length < 6}
+            style={primaryButtonStyle}
           >
-            <p style={{ margin: "0 0 4px", color: "#aaa", fontSize: 13 }}>
-              {tx.waiting}
-            </p>
-            <p style={{ margin: 0, fontSize: 24, fontWeight: "bold" }}>
-              {pendingRequests.length}
-            </p>
-          </div>
-        </div>
+            Speichern
+          </button>
+        </section>
       )}
 
-      {!loading && !message && (
-        <h2 style={{ fontSize: 22, marginTop: 0 }}>{tx.pending}</h2>
+      {loading && <p>Wird geladen...</p>}
+
+      {!loading && !message.includes("einloggen") && (
+        <h2 style={{ fontSize: 22, marginTop: 0 }}>Benutzer</h2>
       )}
 
-      {!loading && pendingRequests.length === 0 && !message && (
-        <p style={{ color: "#ccc" }}>{tx.noPending}</p>
-      )}
-
-      {pendingRequests.map((request) => (
+      {users.map((appUser) => (
         <article
-          key={request.id}
+          key={appUser.username_key}
           style={{
             padding: 14,
-            borderRadius: 12,
-            backgroundColor: "#1b1b1b",
-            border: "1px solid #333",
-            marginBottom: 14,
+            borderRadius: 8,
+            backgroundColor: "#141924",
+            border: "1px solid #28313d",
+            marginBottom: 12,
           }}
         >
-          <p style={{ margin: "0 0 6px", fontWeight: "bold" }}>
-            {request.display_name || tx.unnamed}
+          <p style={{ margin: "0 0 5px", fontWeight: "bold" }}>
+            {appUser.username}
           </p>
-          <p style={{ margin: "0 0 6px", color: "#ccc" }}>{request.email}</p>
-          <p style={{ margin: "0 0 10px", fontSize: 13, color: "#aaa" }}>
-            {new Date(request.requested_at).toLocaleString("de-DE")} |{" "}
-            {request.status}
+          <p style={{ margin: "0 0 8px", color: "#b9c1cf", fontSize: 13 }}>
+            {appUser.role === "admin" ? "Admin" : "Benutzer"} ·{" "}
+            {appUser.active ? "aktiv" : "deaktiviert"}
           </p>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() => updateRequest(request.id, "approve")}
-              disabled={busyId === request.id}
-              style={{
-                flex: 1,
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#43a047",
-                color: "white",
-                fontWeight: "bold",
-              }}
-            >
-              {tx.approve}
-            </button>
-            <button
-              onClick={() => updateRequest(request.id, "reject")}
-              disabled={busyId === request.id}
-              style={{
-                flex: 1,
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#e53935",
-                color: "white",
-                fontWeight: "bold",
-              }}
-            >
-              {tx.reject}
-            </button>
-          </div>
-        </article>
-      ))}
-
-      {!loading && !message && (
-        <h2 style={{ fontSize: 22, marginTop: 22 }}>{tx.users}</h2>
-      )}
-
-      {!loading && users.length === 0 && !message && (
-        <p style={{ color: "#ccc" }}>{tx.noUsers}</p>
-      )}
-
-      {users.map((approvedUser) => {
-        const latestRequest = requests.find(
-          (request) => request.email === approvedUser.email
-        );
-
-        return (
-          <article
-            key={approvedUser.email}
+          <button
+            onClick={() => setActive(appUser, !appUser.active)}
+            disabled={saving || appUser.username_key === "memed"}
             style={{
-              padding: 14,
-              borderRadius: 12,
-              backgroundColor: "#1b1b1b",
-              border: "1px solid #333",
-              marginBottom: 14,
+              ...secondaryButtonStyle,
+              backgroundColor: appUser.active ? "#3a1f25" : "#173226",
+              color: appUser.active ? "#ffb4ac" : "#94f0cf",
             }}
           >
-            <p style={{ margin: "0 0 6px", fontWeight: "bold" }}>
-              {approvedUser.display_name || tx.unnamed}
-            </p>
-            <p style={{ margin: "0 0 6px", color: "#ccc" }}>
-              {approvedUser.email}
-            </p>
-            <p style={{ margin: "0 0 10px", fontSize: 13, color: "#aaa" }}>
-              {tx.approved}:{" "}
-              {new Date(approvedUser.created_at).toLocaleString(
-                language === "tr" ? "tr-TR" : language === "en" ? "en-US" : "de-DE"
-              )}
-            </p>
-            <button
-              onClick={() =>
-                updateRequest(
-                  latestRequest?.id || "",
-                  "remove",
-                  approvedUser.email
-                )
-              }
-              disabled={busyId === (latestRequest?.id || approvedUser.email)}
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "10px",
-                border: "none",
-                backgroundColor: "#e53935",
-                color: "white",
-                fontWeight: "bold",
-              }}
-            >
-              {tx.remove}
-            </button>
-          </article>
-        );
-      })}
+            {appUser.active ? "Deaktivieren" : "Aktivieren"}
+          </button>
+        </article>
+      ))}
     </main>
   );
 }
+
+const inputStyle = {
+  width: "100%",
+  padding: 13,
+  borderRadius: 8,
+  border: "1px solid #334052",
+  background: "#0d1016",
+  color: "white",
+  font: "inherit",
+  boxSizing: "border-box",
+};
+
+const primaryButtonStyle = {
+  width: "100%",
+  minHeight: 44,
+  border: 0,
+  borderRadius: 8,
+  background: "#1fb895",
+  color: "#07100d",
+  fontWeight: 850,
+};
+
+const secondaryButtonStyle = {
+  width: "100%",
+  minHeight: 42,
+  border: "1px solid #334052",
+  borderRadius: 8,
+  fontWeight: 800,
+};

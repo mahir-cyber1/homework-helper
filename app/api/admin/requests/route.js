@@ -2,36 +2,20 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const EXTRA_ADMIN_EMAILS = ["genckurecikli@gmail.com"];
+const ADMIN_USERNAME = "Memed";
+const LOGIN_DOMAIN = "sign.local";
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
+function normalizeUsername(username) {
+  return String(username || "").trim().slice(0, 50);
 }
 
-function isAdminEmail(email) {
-  const normalizedEmail = normalizeEmail(email);
-  const envAdminEmail = normalizeEmail(process.env.ADMIN_EMAIL);
-
-  return (
-    normalizedEmail &&
-    (normalizedEmail === envAdminEmail ||
-      EXTRA_ADMIN_EMAILS.includes(normalizedEmail))
-  );
+function getUsernameKey(username) {
+  return normalizeUsername(username).toLowerCase();
 }
 
-function getDisplayNameKey(displayName) {
-  return String(displayName || "").trim().toLowerCase();
-}
-
-function isMissingDisplayNameKeyError(error) {
-  const message = String(error?.message || "");
-
-  return (
-    message.includes("display_name_key") &&
-    (message.includes("schema cache") ||
-      message.includes("column") ||
-      message.includes("Could not find"))
-  );
+function getLoginEmail(username) {
+  const key = getUsernameKey(username).replace(/[^a-z0-9._-]/g, "-");
+  return `${key || "user"}@${LOGIN_DOMAIN}`;
 }
 
 function getAdminClient() {
@@ -67,16 +51,64 @@ async function getAdminUser(req, adminClient) {
     return { error: "Session ist ungueltig.", status: 401 };
   }
 
-  if (!isAdminEmail(user.email)) {
-    return {
-      error: `Nur der Admin darf diese Seite nutzen. Erkannte E-Mail: ${
-        user.email || "unbekannt"
-      }`,
-      status: 403,
-    };
+  const usernameKey = getUsernameKey(
+    user.user_metadata?.sign_username || user.user_metadata?.display_name
+  );
+  const email = String(user.email || "").toLowerCase();
+
+  const { data: appUser } = await adminClient
+    .from("sign_app_users")
+    .select("role,active")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  const isAdmin =
+    appUser?.role === "admin" ||
+    usernameKey === getUsernameKey(ADMIN_USERNAME) ||
+    email === getLoginEmail(ADMIN_USERNAME);
+
+  if (!isAdmin) {
+    return { error: "Nur der Admin darf diese Seite nutzen.", status: 403 };
   }
 
   return { user };
+}
+
+async function createOrUpdateAuthUser(adminClient, username, password, role, authUserId) {
+  const email = getLoginEmail(username);
+  const metadata = {
+    display_name: username,
+    sign_username: username,
+    role,
+  };
+
+  if (authUserId) {
+    const { data, error } = await adminClient.auth.admin.updateUserById(
+      authUserId,
+      {
+        password,
+        user_metadata: metadata,
+      }
+    );
+
+    if (error) throw error;
+    return data.user;
+  }
+
+  const { data, error } = await adminClient.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: metadata,
+  });
+
+  if (!error) return data.user;
+
+  if (!String(error.message || "").toLowerCase().includes("already")) {
+    throw error;
+  }
+
+  return null;
 }
 
 export async function GET(req) {
@@ -95,33 +127,19 @@ export async function GET(req) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const { data, error } = await adminClient
-    .from("login_access_requests")
-    .select("id,email,display_name,status,requested_at,approved_at")
-    .order("requested_at", { ascending: false })
-    .limit(100);
+  const { data: users, error } = await adminClient
+    .from("sign_app_users")
+    .select("username_key,username,role,active,created_at,updated_at")
+    .order("created_at", { ascending: false });
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const { data: approvedUsers, error: usersError } = await adminClient
-    .from("approved_login_emails")
-    .select("email,display_name,created_at")
-    .order("created_at", { ascending: false });
-
-  if (usersError) {
-    return Response.json({ error: usersError.message }, { status: 500 });
-  }
-
-  const pendingRequests = (data || []).filter(
-    (request) => request.status === "pending"
-  );
-
   return Response.json({
-    requests: data || [],
-    pendingRequests,
-    users: approvedUsers || [],
+    requests: [],
+    pendingRequests: [],
+    users: users || [],
   });
 }
 
@@ -141,96 +159,77 @@ export async function POST(req) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const { id, email, action } = await req.json();
+  const { action, username, password, role = "user" } = await req.json();
+  const finalUsername = normalizeUsername(username);
+  const usernameKey = getUsernameKey(finalUsername);
 
-  if ((!id && !email) || !["approve", "reject", "remove"].includes(action)) {
-    return Response.json(
-      { error: "Ungueltige Admin-Aktion." },
-      { status: 400 }
-    );
+  if (!["create", "remove", "activate"].includes(action)) {
+    return Response.json({ error: "Ungueltige Admin-Aktion." }, { status: 400 });
   }
 
-  if (action === "remove") {
-    const normalizedEmail = normalizeEmail(email);
+  if (finalUsername.length < 2) {
+    return Response.json({ error: "Benutzername fehlt." }, { status: 400 });
+  }
 
-    const { error: deleteError } = await adminClient
-      .from("approved_login_emails")
-      .delete()
-      .eq("email", normalizedEmail);
-
-    if (deleteError) {
-      return Response.json({ error: deleteError.message }, { status: 500 });
+  if (action === "create") {
+    if (!password || password.length < 6) {
+      return Response.json(
+        { error: "Passwort muss mindestens 6 Zeichen haben." },
+        { status: 400 }
+      );
     }
 
-    await adminClient
-      .from("login_access_requests")
-      .update({
-        status: "rejected",
-        approved_at: null,
-      })
-      .eq("email", normalizedEmail);
+    const existing = await adminClient
+      .from("sign_app_users")
+      .select("auth_user_id")
+      .eq("username_key", usernameKey)
+      .maybeSingle();
+
+    const finalRole = role === "admin" ? "admin" : "user";
+    const createdUser = await createOrUpdateAuthUser(
+      adminClient,
+      finalUsername,
+      password,
+      finalRole,
+      existing.data?.auth_user_id || null
+    );
+
+    const authUserId = createdUser?.id || existing.data?.auth_user_id || null;
+
+    const { error } = await adminClient.from("sign_app_users").upsert({
+      username_key: usernameKey,
+      username: finalUsername,
+      auth_user_id: authUserId,
+      role: finalRole,
+      active: true,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    if (authUserId) {
+      await adminClient.from("user_profiles").upsert({
+        user_id: authUserId,
+        email: getLoginEmail(finalUsername),
+        display_name: finalUsername,
+        display_name_key: usernameKey,
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     return Response.json({ ok: true });
   }
 
-  const { data: request, error: requestError } = await adminClient
-    .from("login_access_requests")
-    .select("id,email,display_name")
-    .eq("id", id)
-    .maybeSingle();
+  const active = action === "activate";
+  const { error } = await adminClient
+    .from("sign_app_users")
+    .update({ active, updated_at: new Date().toISOString() })
+    .eq("username_key", usernameKey);
 
-  if (requestError || !request) {
-    return Response.json(
-      { error: requestError?.message || "Anfrage nicht gefunden." },
-      { status: 404 }
-    );
-  }
-
-  if (action === "approve") {
-    const approvalPayload = {
-      email: request.email,
-      display_name: request.display_name,
-      display_name_key: getDisplayNameKey(request.display_name),
-    };
-
-    const { error: approvalError } = await adminClient
-      .from("approved_login_emails")
-      .upsert(approvalPayload, { onConflict: "email" });
-
-    if (isMissingDisplayNameKeyError(approvalError)) {
-      delete approvalPayload.display_name_key;
-
-      const { error: fallbackError } = await adminClient
-        .from("approved_login_emails")
-        .upsert(approvalPayload, { onConflict: "email" });
-
-      if (fallbackError) {
-        return Response.json({ error: fallbackError.message }, { status: 500 });
-      }
-    } else if (approvalError) {
-      return Response.json({ error: approvalError.message }, { status: 500 });
-    }
-  } else {
-    const { error: deleteError } = await adminClient
-      .from("approved_login_emails")
-      .delete()
-      .eq("email", request.email);
-
-    if (deleteError) {
-      return Response.json({ error: deleteError.message }, { status: 500 });
-    }
-  }
-
-  const { error: updateError } = await adminClient
-    .from("login_access_requests")
-    .update({
-      status: action === "approve" ? "approved" : "rejected",
-      approved_at: action === "approve" ? new Date().toISOString() : null,
-    })
-    .eq("id", id);
-
-  if (updateError) {
-    return Response.json({ error: updateError.message }, { status: 500 });
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
   }
 
   return Response.json({ ok: true });

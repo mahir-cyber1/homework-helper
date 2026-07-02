@@ -39,10 +39,33 @@
 
 .cameraPanel,
 .resultPanel,
-.trainingPanel {
+.trainingPanel,
+.livePanel {
   border: 1px solid #28313d;
   border-radius: 8px;
   background: #141924;
+}
+
+.modeTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.modeTabs button {
+  min-height: 44px;
+  border: 1px solid #334052;
+  border-radius: 8px;
+  background: #111722;
+  color: #dbe3ed;
+  font-weight: 850;
+}
+
+.modeTabs .activeMode {
+  border-color: #78d4bd;
+  background: #173226;
+  color: #94f0cf;
 }
 
 .cameraPanel {
@@ -178,8 +201,25 @@
 }
 
 .resultPanel,
-.trainingPanel {
+.trainingPanel,
+.livePanel {
   padding: 14px;
+}
+
+.livePanel {
+  margin-top: 14px;
+}
+
+.liveText {
+  min-height: 110px;
+  margin: 0 0 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0d121b;
+  color: #f8fafc;
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1.2;
 }
 
 .panelHeader {
