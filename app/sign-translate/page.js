@@ -44,10 +44,22 @@ function flattenSamples(samples) {
 
   const limited = samples.slice(-MAX_SAMPLES);
   if (Array.isArray(limited[0])) {
-    return limited.flat();
+    const frameLength = limited[0].length;
+    const padded = [...limited];
+
+    while (padded.length < MAX_SAMPLES) {
+      padded.unshift(Array(frameLength).fill(0));
+    }
+
+    return padded.flat();
   }
 
-  return limited;
+  const padded = [...limited];
+  while (padded.length < MAX_SAMPLES) {
+    padded.unshift(0);
+  }
+
+  return padded;
 }
 
 function distance(left, right) {
@@ -73,7 +85,11 @@ function buildSuggestion(trainingEntries, featureVector, durationMs) {
 
   if (trainingEntries.length > 0) {
     const scored = trainingEntries
-      .filter((entry) => Array.isArray(entry.features) && entry.features.length)
+      .filter(
+        (entry) =>
+          Array.isArray(entry.features) &&
+          entry.features.length === featureVector.length
+      )
       .map((entry) => ({
         entry,
         score: distance(featureVector, entry.features),
