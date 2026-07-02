@@ -194,6 +194,14 @@
   line-height: 1.4;
 }
 
+.landmarkStatus {
+  margin-top: 6px;
+  color: #f3c969;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .resultGrid {
   display: grid;
   gap: 14px;

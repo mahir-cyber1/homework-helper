@@ -8,6 +8,12 @@ import styles from "./sign-translate.module.css";
 const TRAINING_KEY = "sign-translate-training-v1";
 const MAX_SAMPLES = 48;
 const CAPTURE_SIZE = 16;
+const MEDIAPIPE_WASM_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
+const HOLISTIC_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task";
+const POSE_POINTS = [0, 11, 12, 13, 14, 15, 16, 23, 24];
+const FACE_POINTS = [0, 13, 14, 33, 61, 133, 263, 291, 362];
 
 const starterPhrases = [
   "Hallo",
@@ -31,6 +37,17 @@ function normalizeVector(vector) {
   const deviation = Math.sqrt(variance) || 1;
 
   return vector.map((value) => Number(((value - average) / deviation).toFixed(4)));
+}
+
+function flattenSamples(samples) {
+  if (!samples.length) return [];
+
+  const limited = samples.slice(-MAX_SAMPLES);
+  if (Array.isArray(limited[0])) {
+    return limited.flat();
+  }
+
+  return limited;
 }
 
 function distance(left, right) {
@@ -86,6 +103,41 @@ function buildSuggestion(trainingEntries, featureVector, durationMs) {
   };
 }
 
+function pushLandmark(target, landmarks, indexes = null) {
+  const selected = indexes || landmarks.map((_landmark, index) => index);
+  target.push(landmarks.length ? 1 : 0);
+
+  selected.forEach((index) => {
+    const landmark = landmarks[index];
+    target.push(
+      Number((landmark?.x || 0).toFixed(4)),
+      Number((landmark?.y || 0).toFixed(4)),
+      Number((landmark?.z || 0).toFixed(4))
+    );
+  });
+}
+
+function extractHolisticFeatures(result) {
+  const leftHand = result.leftHandLandmarks?.[0] || [];
+  const rightHand = result.rightHandLandmarks?.[0] || [];
+  const pose = result.poseLandmarks?.[0] || [];
+  const face = result.faceLandmarks?.[0] || [];
+  const vector = [];
+
+  pushLandmark(vector, leftHand);
+  pushLandmark(vector, rightHand);
+  pushLandmark(vector, pose, POSE_POINTS);
+  pushLandmark(vector, face, FACE_POINTS);
+
+  const detections = {
+    hands: Number(Boolean(leftHand.length)) + Number(Boolean(rightHand.length)),
+    pose: Number(Boolean(pose.length)),
+    face: Number(Boolean(face.length)),
+  };
+
+  return { vector, detections };
+}
+
 function loadTrainingEntries() {
   if (typeof window === "undefined") return [];
 
@@ -104,6 +156,8 @@ export default function SignTranslatePage() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const recorderRef = useRef(null);
+  const holisticRef = useRef(null);
+  const holisticLoadingRef = useRef(false);
   const captureTimerRef = useRef(null);
   const liveResultTimerRef = useRef(null);
   const previousFrameRef = useRef(null);
@@ -130,6 +184,7 @@ export default function SignTranslatePage() {
   const [correctedText, setCorrectedText] = useState("");
   const [status, setStatus] = useState("Kamera starten, dann eine kurze Gebaerde aufnehmen.");
   const [cloudStatus, setCloudStatus] = useState("Lokales Training aktiv.");
+  const [landmarkStatus, setLandmarkStatus] = useState("KI-Tracking noch nicht geladen.");
   const [videoUrl, setVideoUrl] = useState("");
 
   const learnedPhrases = useMemo(() => {
@@ -192,9 +247,42 @@ export default function SignTranslatePage() {
       window.clearInterval(captureTimerRef.current);
       window.clearInterval(liveResultTimerRef.current);
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      holisticRef.current?.close?.();
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     };
   }, []);
+
+  async function loadHolisticLandmarker() {
+    if (holisticRef.current || holisticLoadingRef.current) return;
+
+    holisticLoadingRef.current = true;
+    setLandmarkStatus("KI-Tracking wird geladen...");
+
+    try {
+      const { FilesetResolver, HolisticLandmarker } = await import(
+        "@mediapipe/tasks-vision"
+      );
+      const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+      holisticRef.current = await HolisticLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: HOLISTIC_MODEL_URL,
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        minFaceDetectionConfidence: 0.45,
+        minFacePresenceConfidence: 0.45,
+        minPoseDetectionConfidence: 0.45,
+        minPosePresenceConfidence: 0.45,
+        minHandLandmarksConfidence: 0.35,
+      });
+      setLandmarkStatus("KI-Tracking aktiv: Haende, Gesicht und Koerper.");
+    } catch (error) {
+      console.error("MediaPipe konnte nicht geladen werden:", error);
+      setLandmarkStatus("KI-Tracking nicht geladen. Pixel-Fallback aktiv.");
+    } finally {
+      holisticLoadingRef.current = false;
+    }
+  }
 
   async function startCamera() {
     setStatus("Kamera wird gestartet...");
@@ -215,6 +303,7 @@ export default function SignTranslatePage() {
       }
       setCameraState("ready");
       setStatus("Bereit. Nimm 3 bis 8 Sekunden Gebaerdensprache auf.");
+      loadHolisticLandmarker();
     } catch (error) {
       setCameraState("error");
       setStatus("Kamera konnte nicht gestartet werden. Bitte Browser-Berechtigung pruefen.");
@@ -224,6 +313,25 @@ export default function SignTranslatePage() {
   function sampleFrame() {
     const video = videoRef.current;
     if (!video || video.readyState < 2) return;
+
+    if (holisticRef.current) {
+      try {
+        const result = holisticRef.current.detectForVideo(video, performance.now());
+        const { vector, detections } = extractHolisticFeatures(result);
+
+        if (vector.length) {
+          samplesRef.current.push(vector);
+          setLandmarkStatus(
+            `KI-Tracking: ${detections.hands} Hand/Hände, ${
+              detections.pose ? "Koerper" : "kein Koerper"
+            }, ${detections.face ? "Gesicht" : "kein Gesicht"}`
+          );
+          return;
+        }
+      } catch (error) {
+        console.error("MediaPipe Frame-Analyse fehlgeschlagen:", error);
+      }
+    }
 
     const canvas = document.createElement("canvas");
     canvas.width = CAPTURE_SIZE;
@@ -281,7 +389,7 @@ export default function SignTranslatePage() {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       const nextVideoUrl = URL.createObjectURL(blob);
       videoUrlRef.current = nextVideoUrl;
-      const features = normalizeVector(samplesRef.current.slice(0, MAX_SAMPLES));
+      const features = normalizeVector(flattenSamples(samplesRef.current));
       const suggestion = buildSuggestion(trainingEntries, features, durationMs);
 
       setVideoUrl(nextVideoUrl);
@@ -325,8 +433,7 @@ export default function SignTranslatePage() {
 
     captureTimerRef.current = window.setInterval(sampleFrame, 180);
     liveResultTimerRef.current = window.setInterval(() => {
-      const recentSamples = samplesRef.current.slice(-MAX_SAMPLES);
-      const features = normalizeVector(recentSamples);
+      const features = normalizeVector(flattenSamples(samplesRef.current));
       const durationMs = Date.now() - startedAtRef.current;
       const suggestion = buildSuggestion(trainingEntries, features, durationMs);
 
@@ -508,6 +615,7 @@ export default function SignTranslatePage() {
         </div>
 
         <p className={styles.status}>{status}</p>
+        <p className={styles.landmarkStatus}>{landmarkStatus}</p>
         <p className={styles.cloudStatus}>{cloudStatus}</p>
       </section>
 
