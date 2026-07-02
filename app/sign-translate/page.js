@@ -114,7 +114,11 @@ export default function SignTranslatePage() {
   const router = useRouter();
 
   const [cameraState, setCameraState] = useState("idle");
-  const [mode, setMode] = useState("live");
+  const [mode, setMode] = useState(() => {
+    if (typeof window === "undefined") return "live";
+    const nextMode = new URLSearchParams(window.location.search).get("mode");
+    return nextMode === "train" ? "train" : "live";
+  });
   const [isRecording, setIsRecording] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [trainingEntries, setTrainingEntries] = useState(() => loadTrainingEntries());
@@ -190,12 +194,6 @@ export default function SignTranslatePage() {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const nextMode = new URLSearchParams(window.location.search).get("mode");
-    setMode(nextMode === "train" ? "train" : "live");
   }, []);
 
   async function startCamera() {

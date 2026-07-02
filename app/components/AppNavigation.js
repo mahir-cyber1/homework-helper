@@ -61,7 +61,11 @@ export default function AppNavigation() {
   const [avatarId, setAvatarId] = useState("star");
   const [frameId, setFrameId] = useState("none");
   const [themeId, setThemeId] = useState("blue");
-  const [currentMode, setCurrentMode] = useState("live");
+  const [currentMode, setCurrentMode] = useState(() => {
+    if (typeof window === "undefined") return "live";
+    const mode = new URLSearchParams(window.location.search).get("mode");
+    return mode === "train" ? "train" : "live";
+  });
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -101,12 +105,6 @@ export default function AppNavigation() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mode = new URLSearchParams(window.location.search).get("mode");
-    setCurrentMode(mode === "train" ? "train" : "live");
-  }, [pathname]);
 
   if (!VISIBLE_PATHS.has(pathname)) return null;
 
@@ -163,6 +161,11 @@ export default function AppNavigation() {
           <Link
             key={item.href}
             href={href}
+            onClick={() => {
+              if (item.mode === "live" || item.mode === "train") {
+                setCurrentMode(item.mode);
+              }
+            }}
             className={`app-bottom-nav__item${isActive ? " is-active" : ""}`}
             aria-current={isActive ? "page" : undefined}
           >

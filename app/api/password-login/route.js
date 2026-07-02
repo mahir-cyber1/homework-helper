@@ -97,7 +97,8 @@ async function ensureAdminUser(adminClient) {
 
 export async function POST(req) {
   try {
-    const { displayName, username, password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { displayName, username, password } = body;
     const finalUsername = normalizeUsername(username || displayName);
     const usernameKey = getUsernameKey(finalUsername);
 
