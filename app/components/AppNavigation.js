@@ -14,6 +14,7 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: { de: "Start", en: "Home", tr: "Ana sayfa" }, icon: "⌂" },
   { href: "/plant-doctor", label: { de: "Scan", en: "Scan", tr: "Tara" }, icon: "◉" },
+  { href: "/sign-translate", label: { de: "Gebärden", en: "Signs", tr: "İşaret" }, icon: "✋" },
   { href: "/history", label: { de: "Verlauf", en: "History", tr: "Geçmiş" }, icon: "▤" },
   { href: "/profile", label: { de: "Profil", en: "Profile", tr: "Profil" }, icon: "●" },
 ];
@@ -21,6 +22,9 @@ const NAV_ITEMS = [
 const VISIBLE_PATHS = new Set([
   "/",
   "/plant-doctor",
+  "/sign-translate",
+  "/gebärdensprache",
+  "/gebaerdensprache",
   "/history",
   "/training",
   "/league",
@@ -96,6 +100,9 @@ export default function AppNavigation() {
           item.href === "/profile" && isAdmin ? "/admin" : item.href;
         const isActive =
           pathname === href ||
+          (item.href === "/sign-translate" &&
+            (pathname === "/gebärdensprache" ||
+              pathname === "/gebaerdensprache")) ||
           (item.href === "/history" && pathname === "/training") ||
           (item.href === "/profile" && pathname === "/admin");
 
