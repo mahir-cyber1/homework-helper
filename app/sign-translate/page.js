@@ -264,7 +264,9 @@ export default function SignTranslatePage() {
   const [correctedText, setCorrectedText] = useState("");
   const [status, setStatus] = useState("Kamera starten, dann eine kurze Gebaerde aufnehmen.");
   const [cloudStatus, setCloudStatus] = useState("Lokales Training aktiv.");
-  const [landmarkStatus, setLandmarkStatus] = useState("KI-Tracking noch nicht geladen.");
+  const [landmarkStatus, setLandmarkStatus] = useState(
+    "KI-Tracking bereit: startet nach dem Kamerastart."
+  );
   const [videoUrl, setVideoUrl] = useState("");
 
   const learnedPhrases = useMemo(() => {
