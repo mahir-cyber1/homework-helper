@@ -79,61 +79,80 @@ function normalizeLabel(text) {
   return String(text || "").trim().replace(/\s+/g, " ");
 }
 
-function confidenceFromScore(score, runnerUpScore, examples) {
-  const base = Math.max(0, 1 - score / 1.35);
+function confidenceFromScore(score, runnerUpScore, examples, votes = 1) {
+  const base = Math.max(0, 1 - score / 1.15);
   const margin =
     Number.isFinite(runnerUpScore) && runnerUpScore > 0
-      ? Math.max(0, Math.min(0.25, (runnerUpScore - score) / runnerUpScore))
+      ? Math.max(0, Math.min(0.28, (runnerUpScore - score) / runnerUpScore))
       : 0.12;
-  const exampleBonus = Math.min(0.12, Math.max(0, examples - 1) * 0.035);
+  const exampleBonus = Math.min(0.14, Math.max(0, examples - 1) * 0.035);
+  const voteBonus = Math.min(0.1, Math.max(0, votes - 1) * 0.035);
 
   return Math.max(
     8,
-    Math.min(98, Math.round((base + margin + exampleBonus) * 100))
+    Math.min(98, Math.round((base + margin + exampleBonus + voteBonus) * 100))
   );
 }
 
 function rankTrainingMatches(trainingEntries, featureVector) {
+  const now = Date.now();
+  const scoredEntries = trainingEntries
+    .map((entry, index) => {
+      const label = normalizeLabel(entry.text);
+      if (
+        !label ||
+        !Array.isArray(entry.features) ||
+        entry.features.length !== featureVector.length
+      ) {
+        return null;
+      }
+
+      const createdAt = Date.parse(entry.createdAt || "") || now;
+      const ageDays = Math.max(0, (now - createdAt) / 86400000);
+      const recencyBoost = Math.max(0.9, 1 - Math.min(ageDays, 30) * 0.01);
+
+      return {
+        text: label,
+        distance: distance(featureVector, entry.features),
+        recencyBoost,
+        orderBoost: Math.max(0.9, 1 - index * 0.001),
+      };
+    })
+    .filter(Boolean)
+    .filter((entry) => Number.isFinite(entry.distance))
+    .sort((a, b) => a.distance - b.distance);
+
+  const nearest = scoredEntries.slice(0, Math.min(7, scoredEntries.length));
   const grouped = new Map();
 
-  trainingEntries.forEach((entry) => {
-    const label = normalizeLabel(entry.text);
-    if (
-      !label ||
-      !Array.isArray(entry.features) ||
-      entry.features.length !== featureVector.length
-    ) {
-      return;
-    }
-
-    const current = grouped.get(label) || {
-      text: label,
-      distances: [],
-      examples: 0,
+  nearest.forEach((entry, index) => {
+    const current = grouped.get(entry.text) || {
+      text: entry.text,
+      votes: 0,
+      best: Number.POSITIVE_INFINITY,
+      weightedScore: 0,
     };
-    current.distances.push(distance(featureVector, entry.features));
-    current.examples += 1;
-    grouped.set(label, current);
+    const closeness = 1 / Math.max(0.001, entry.distance);
+    const rankBoost = 1 / (index + 1);
+    const voteWeight = closeness * entry.recencyBoost * entry.orderBoost * rankBoost;
+
+    current.votes += 1;
+    current.best = Math.min(current.best, entry.distance);
+    current.weightedScore += voteWeight;
+    grouped.set(entry.text, current);
   });
 
   return [...grouped.values()]
     .map((group) => {
-      const sortedDistances = group.distances
-        .filter((score) => Number.isFinite(score))
-        .sort((a, b) => a - b);
-      const nearest = sortedDistances.slice(0, Math.min(3, sortedDistances.length));
-      const average =
-        nearest.reduce((sum, score) => sum + score, 0) / (nearest.length || 1);
-      const best = sortedDistances[0] ?? Number.POSITIVE_INFINITY;
-
       return {
         text: group.text,
-        examples: group.examples,
-        score: average * 0.7 + best * 0.3,
-        best,
+        examples: scoredEntries.filter((entry) => entry.text === group.text).length,
+        votes: group.votes,
+        score: group.best,
+        weightedScore: group.weightedScore,
       };
     })
-    .sort((a, b) => a.score - b.score);
+    .sort((a, b) => b.weightedScore - a.weightedScore);
 }
 
 function buildSuggestion(trainingEntries, featureVector, durationMs) {
@@ -153,10 +172,11 @@ function buildSuggestion(trainingEntries, featureVector, durationMs) {
       const confidence = confidenceFromScore(
         best.score,
         runnerUp?.score ?? Number.POSITIVE_INFINITY,
-        best.examples
+        best.examples,
+        best.votes
       );
 
-      if (best.score > 1.45 && confidence < 35) {
+      if (best.score > 1.35 && confidence < 42) {
         return {
           text: "Noch nicht sicher erkannt",
           confidence,
@@ -539,6 +559,9 @@ export default function SignTranslatePage() {
       const suggestion = buildSuggestion(trainingEntries, features, durationMs);
 
       setLiveResult(suggestion);
+      samplesRef.current = [];
+      previousFrameRef.current = null;
+      startedAtRef.current = Date.now();
     }, 1800);
   }
 
