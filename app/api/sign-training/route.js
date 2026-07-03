@@ -58,7 +58,7 @@ function normalizeFeatures(features) {
   return features
     .map((value) => Number(value))
     .filter((value) => Number.isFinite(value))
-    .slice(0, 96);
+    .slice(0, 12000);
 }
 
 export async function GET(req) {

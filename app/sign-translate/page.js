@@ -74,6 +74,67 @@ function distance(left, right) {
   return Math.sqrt(total / length);
 }
 
+function normalizeLabel(text) {
+  return String(text || "").trim().replace(/\s+/g, " ");
+}
+
+function confidenceFromScore(score, runnerUpScore, examples) {
+  const base = Math.max(0, 1 - score / 1.35);
+  const margin =
+    Number.isFinite(runnerUpScore) && runnerUpScore > 0
+      ? Math.max(0, Math.min(0.25, (runnerUpScore - score) / runnerUpScore))
+      : 0.12;
+  const exampleBonus = Math.min(0.12, Math.max(0, examples - 1) * 0.035);
+
+  return Math.max(
+    8,
+    Math.min(98, Math.round((base + margin + exampleBonus) * 100))
+  );
+}
+
+function rankTrainingMatches(trainingEntries, featureVector) {
+  const grouped = new Map();
+
+  trainingEntries.forEach((entry) => {
+    const label = normalizeLabel(entry.text);
+    if (
+      !label ||
+      !Array.isArray(entry.features) ||
+      entry.features.length !== featureVector.length
+    ) {
+      return;
+    }
+
+    const current = grouped.get(label) || {
+      text: label,
+      distances: [],
+      examples: 0,
+    };
+    current.distances.push(distance(featureVector, entry.features));
+    current.examples += 1;
+    grouped.set(label, current);
+  });
+
+  return [...grouped.values()]
+    .map((group) => {
+      const sortedDistances = group.distances
+        .filter((score) => Number.isFinite(score))
+        .sort((a, b) => a - b);
+      const nearest = sortedDistances.slice(0, Math.min(3, sortedDistances.length));
+      const average =
+        nearest.reduce((sum, score) => sum + score, 0) / (nearest.length || 1);
+      const best = sortedDistances[0] ?? Number.POSITIVE_INFINITY;
+
+      return {
+        text: group.text,
+        examples: group.examples,
+        score: average * 0.7 + best * 0.3,
+        best,
+      };
+    })
+    .sort((a, b) => a.score - b.score);
+}
+
 function buildSuggestion(trainingEntries, featureVector, durationMs) {
   if (!featureVector.length) {
     return {
@@ -84,23 +145,26 @@ function buildSuggestion(trainingEntries, featureVector, durationMs) {
   }
 
   if (trainingEntries.length > 0) {
-    const scored = trainingEntries
-      .filter(
-        (entry) =>
-          Array.isArray(entry.features) &&
-          entry.features.length === featureVector.length
-      )
-      .map((entry) => ({
-        entry,
-        score: distance(featureVector, entry.features),
-      }))
-      .sort((a, b) => a.score - b.score);
-
+    const scored = rankTrainingMatches(trainingEntries, featureVector);
     const best = scored[0];
     if (best) {
-      const confidence = Math.max(12, Math.round((1 - Math.min(best.score, 2) / 2) * 100));
+      const runnerUp = scored[1];
+      const confidence = confidenceFromScore(
+        best.score,
+        runnerUp?.score ?? Number.POSITIVE_INFINITY,
+        best.examples
+      );
+
+      if (best.score > 1.45 && confidence < 35) {
+        return {
+          text: "Noch nicht sicher erkannt",
+          confidence,
+          source: "uncertain",
+        };
+      }
+
       return {
-        text: best.entry.text,
+        text: best.text,
         confidence,
         source: "training",
       };
