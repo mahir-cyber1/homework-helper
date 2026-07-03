@@ -148,3 +148,43 @@ export async function POST(req) {
     },
   });
 }
+
+export async function DELETE(req) {
+  const adminClient = getAdminClient();
+
+  if (!adminClient) {
+    return Response.json({ error: "Supabase fehlt." }, { status: 500 });
+  }
+
+  const auth = await getUser(req, adminClient);
+  if (auth.error) {
+    return Response.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const ids = Array.isArray(body.ids)
+    ? body.ids
+        .map((id) => String(id || "").trim())
+        .filter(Boolean)
+        .slice(0, 120)
+    : [];
+
+  if (!ids.length) {
+    return Response.json(
+      { error: "Keine Trainingsbeispiele ausgewählt." },
+      { status: 400 }
+    );
+  }
+
+  const { error } = await adminClient
+    .from("sign_training_examples")
+    .delete()
+    .eq("user_id", auth.user.id)
+    .in("id", ids);
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return Response.json({ deletedIds: ids });
+}

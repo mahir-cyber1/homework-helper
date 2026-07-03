@@ -14,6 +14,7 @@ const HOLISTIC_MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task";
 const POSE_POINTS = [0, 11, 12, 13, 14, 15, 16, 23, 24];
 const FACE_POINTS = [0, 13, 14, 33, 61, 133, 263, 291, 362];
+const AVATAR_COLORS = ["#78d4bd", "#94f0cf", "#7dd3fc", "#f3c969", "#fda4af"];
 
 const starterPhrases = [
   "Hallo",
@@ -232,19 +233,65 @@ function saveTrainingEntries(entries) {
   window.localStorage.setItem(TRAINING_KEY, JSON.stringify(entries));
 }
 
+function buildAvatar(features) {
+  const values = Array.isArray(features) && features.length ? features : [0.2, 0.5, 0.8];
+  const pick = (index, fallback = 0) => Math.abs(values[index] ?? fallback);
+  const color = AVATAR_COLORS[Math.floor(pick(7, 0.4) * 1000) % AVATAR_COLORS.length];
+
+  return {
+    color,
+    headX: 44 + Math.round((pick(3, 0.3) % 1) * 18),
+    leftHandY: 34 + Math.round((pick(19, 0.4) % 1) * 24),
+    rightHandY: 28 + Math.round((pick(47, 0.7) % 1) * 28),
+    tilt: Math.round(((pick(81, 0.5) % 1) - 0.5) * 22),
+  };
+}
+
+function AvatarPreview({ features, label = "Gespeicherter Bewegungs-Avatar", compact = false }) {
+  const avatar = buildAvatar(features);
+
+  return (
+    <div
+      className={`${styles.avatarPreview}${compact ? ` ${styles.avatarPreviewCompact}` : ""}`}
+      aria-label={label}
+      role="img"
+    >
+      <div
+        className={styles.avatarFigure}
+        style={{
+          "--avatar-color": avatar.color,
+          "--head-x": `${avatar.headX}%`,
+          "--left-hand-y": `${avatar.leftHandY}%`,
+          "--right-hand-y": `${avatar.rightHandY}%`,
+          "--avatar-tilt": `${avatar.tilt}deg`,
+        }}
+      >
+        <span className={styles.avatarHead} />
+        <span className={styles.avatarBody} />
+        <span className={styles.avatarArmLeft} />
+        <span className={styles.avatarArmRight} />
+        <span className={styles.avatarHandLeft} />
+        <span className={styles.avatarHandRight} />
+      </div>
+      {!compact && (
+        <span className={styles.avatarCaption}>
+          Datenschutz: Es wird kein echtes Video gespeichert, nur dieser Avatar und Bewegungsdaten.
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function SignTranslatePage() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const recorderRef = useRef(null);
   const holisticRef = useRef(null);
   const holisticLoadingRef = useRef(false);
   const captureTimerRef = useRef(null);
   const liveResultTimerRef = useRef(null);
   const previousFrameRef = useRef(null);
   const samplesRef = useRef([]);
-  const chunksRef = useRef([]);
   const startedAtRef = useRef(0);
-  const videoUrlRef = useRef("");
   const router = useRouter();
 
   const [cameraState, setCameraState] = useState("idle");
@@ -267,7 +314,7 @@ export default function SignTranslatePage() {
   const [landmarkStatus, setLandmarkStatus] = useState(
     "KI-Tracking bereit: startet nach dem Kamerastart."
   );
-  const [videoUrl, setVideoUrl] = useState("");
+  const [selectedTrainingIds, setSelectedTrainingIds] = useState([]);
 
   const learnedPhrases = useMemo(() => {
     const counts = new Map();
@@ -330,7 +377,6 @@ export default function SignTranslatePage() {
       window.clearInterval(liveResultTimerRef.current);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       holisticRef.current?.close?.();
-      if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
     };
   }, []);
 
@@ -443,64 +489,37 @@ export default function SignTranslatePage() {
   function startRecording() {
     if (!streamRef.current || isRecording) return;
 
-    chunksRef.current = [];
     samplesRef.current = [];
     previousFrameRef.current = null;
     startedAtRef.current = Date.now();
     setCurrentResult(null);
     setCorrectedText("");
-    setVideoUrl((oldUrl) => {
-      if (oldUrl) URL.revokeObjectURL(oldUrl);
-      videoUrlRef.current = "";
-      return "";
-    });
-
-    const recorder = new MediaRecorder(streamRef.current, {
-      mimeType: MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : undefined,
-    });
-
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunksRef.current.push(event.data);
-    };
-
-    recorder.onstop = () => {
-      window.clearInterval(captureTimerRef.current);
-      const durationMs = Date.now() - startedAtRef.current;
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const nextVideoUrl = URL.createObjectURL(blob);
-      videoUrlRef.current = nextVideoUrl;
-      const features = normalizeVector(flattenSamples(samplesRef.current));
-      const suggestion = buildSuggestion(trainingEntries, features, durationMs);
-
-      setVideoUrl(nextVideoUrl);
-      setCurrentResult({
-        ...suggestion,
-        features,
-        durationMs,
-        createdAt: new Date().toISOString(),
-      });
-      setCorrectedText(suggestion.text);
-      setStatus(
-        suggestion.source === "training"
-          ? "Vorschlag aus deinen gespeicherten Trainingsbeispielen."
-          : "Erster Vorschlag. Korrigiere ihn, damit die App lernen kann."
-      );
-      setIsRecording(false);
-    };
-
-    recorderRef.current = recorder;
-    recorder.start();
     captureTimerRef.current = window.setInterval(sampleFrame, 220);
     setIsRecording(true);
-    setStatus("Aufnahme laeuft...");
+    setStatus("Aufnahme laeuft. Es wird kein echtes Video gespeichert.");
   }
 
   function stopRecording() {
-    if (recorderRef.current?.state === "recording") {
-      recorderRef.current.stop();
-    }
+    if (!isRecording) return;
+
+    window.clearInterval(captureTimerRef.current);
+    const durationMs = Date.now() - startedAtRef.current;
+    const features = normalizeVector(flattenSamples(samplesRef.current));
+    const suggestion = buildSuggestion(trainingEntries, features, durationMs);
+
+    setCurrentResult({
+      ...suggestion,
+      features,
+      durationMs,
+      createdAt: new Date().toISOString(),
+    });
+    setCorrectedText(suggestion.text);
+    setStatus(
+      suggestion.source === "training"
+        ? "Vorschlag aus deinen gespeicherten Trainingsbeispielen. Die Aufnahme wurde als Avatar dargestellt."
+        : "Erster Vorschlag. Korrigiere ihn, damit die App lernen kann. Kein echtes Video wurde gespeichert."
+    );
+    setIsRecording(false);
   }
 
   function startLiveMode() {
@@ -590,13 +609,72 @@ export default function SignTranslatePage() {
       return;
     }
 
+    if (payload.item?.id) {
+      setTrainingEntries((current) => {
+        const updated = current.map((entry) =>
+          entry.id === nextEntry.id
+            ? { ...entry, id: payload.item.id, remote: true }
+            : entry
+        );
+        saveTrainingEntries(updated);
+        return updated;
+      });
+    }
+
     setCloudStatus("Korrektur auch in Supabase gespeichert.");
   }
 
-  function clearTraining() {
-    saveTrainingEntries([]);
-    setTrainingEntries([]);
-    setStatus("Trainingsbeispiele geloescht.");
+  function toggleTrainingSelection(id) {
+    setSelectedTrainingIds((current) =>
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    );
+  }
+
+  async function deleteSelectedTraining() {
+    if (!selectedTrainingIds.length) {
+      setStatus("Bitte zuerst Trainingsbeispiele zum Loeschen auswaehlen.");
+      return;
+    }
+
+    const selected = new Set(selectedTrainingIds);
+    const nextEntries = trainingEntries.filter((entry) => !selected.has(entry.id));
+    saveTrainingEntries(nextEntries);
+    setTrainingEntries(nextEntries);
+    setSelectedTrainingIds([]);
+    setStatus(`${selectedTrainingIds.length} Trainingsbeispiel(e) lokal geloescht.`);
+
+    if (!supabase) {
+      setCloudStatus("Supabase ist noch nicht konfiguriert.");
+      return;
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setCloudStatus("Nicht eingeloggt: Auswahl wurde nur lokal geloescht.");
+      return;
+    }
+
+    const response = await fetch("/api/sign-training", {
+      method: "DELETE",
+      headers: {
+        authorization: `Bearer ${session.access_token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ ids: selectedTrainingIds }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setCloudStatus(payload.error || "Supabase-Loeschen fehlgeschlagen.");
+      return;
+    }
+
+    setCloudStatus("Ausgewaehlte Trainingsbeispiele auch in Supabase geloescht.");
   }
 
   function exportTraining() {
@@ -721,8 +799,8 @@ export default function SignTranslatePage() {
             {currentResult && <strong>{currentResult.confidence}%</strong>}
           </div>
 
-          {videoUrl && (
-            <video className={styles.playback} src={videoUrl} controls playsInline />
+          {currentResult?.features?.length > 0 && (
+            <AvatarPreview features={currentResult.features} />
           )}
 
           <label className={styles.textLabel} htmlFor="correction">
@@ -753,14 +831,43 @@ export default function SignTranslatePage() {
           </div>
 
           {learnedPhrases.length > 0 ? (
-            <div className={styles.phraseList}>
-              {learnedPhrases.map(([phrase, count]) => (
-                <div key={phrase} className={styles.phraseItem}>
-                  <span>{phrase}</span>
-                  <strong>{count}x</strong>
-                </div>
-              ))}
-            </div>
+            <>
+              <div className={styles.phraseList}>
+                {learnedPhrases.map(([phrase, count]) => (
+                  <div key={phrase} className={styles.phraseItem}>
+                    <span>{phrase}</span>
+                    <strong>{count}x</strong>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.exampleList} aria-label="Einzelne Trainingsbeispiele">
+                {trainingEntries.map((entry) => {
+                  const selected = selectedTrainingIds.includes(entry.id);
+
+                  return (
+                    <label
+                      key={entry.id}
+                      className={`${styles.exampleItem}${selected ? ` ${styles.exampleItemSelected}` : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleTrainingSelection(entry.id)}
+                      />
+                      <AvatarPreview features={entry.features} compact />
+                      <span>
+                        <strong>{entry.text}</strong>
+                        <small>
+                          {entry.createdAt
+                            ? new Date(entry.createdAt).toLocaleDateString("de-DE")
+                            : "Lokal"}
+                        </small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             <p className={styles.emptyState}>
               Noch keine Trainingsdaten. Speichere ein paar korrigierte Aufnahmen.
@@ -771,8 +878,12 @@ export default function SignTranslatePage() {
             <button type="button" onClick={exportTraining} disabled={!trainingEntries.length}>
               Export
             </button>
-            <button type="button" onClick={clearTraining} disabled={!trainingEntries.length}>
-              Loeschen
+            <button
+              type="button"
+              onClick={deleteSelectedTraining}
+              disabled={!selectedTrainingIds.length}
+            >
+              Auswahl loeschen
             </button>
           </div>
         </div>
