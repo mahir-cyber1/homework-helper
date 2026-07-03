@@ -1,13 +1,98 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { getDeviceLanguage, setAppLanguage, useAppLanguage } from "../../lib/i18n";
+
+const REMEMBERED_NAME_KEY = "sign-translate-last-username";
+const LOGIN_TEXT = {
+  de: {
+    title: "Login",
+    intro: "Melde dich mit deinem Namen und Passwort an. Neue Benutzer legt der Admin an.",
+    name: "Name",
+    password: "Passwort",
+    wait: "Bitte warten...",
+    submit: "Einloggen",
+    checking: "Handy wird erkannt...",
+    supabase: "Fehler: Supabase ist noch nicht konfiguriert.",
+    failed: "Login fehlgeschlagen.",
+    processed: "Login verarbeitet.",
+    unknown: "Unbekannt",
+  },
+  en: {
+    title: "Login",
+    intro: "Sign in with your name and password. New users are created by the admin.",
+    name: "Name",
+    password: "Password",
+    wait: "Please wait...",
+    submit: "Log in",
+    checking: "Checking this device...",
+    supabase: "Error: Supabase is not configured yet.",
+    failed: "Login failed.",
+    processed: "Login processed.",
+    unknown: "Unknown",
+  },
+  tr: {
+    title: "Giriş",
+    intro: "Adın ve şifrenle giriş yap. Yeni kullanıcıları admin oluşturur.",
+    name: "Ad",
+    password: "Şifre",
+    wait: "Lütfen bekle...",
+    submit: "Giriş yap",
+    checking: "Telefon tanınıyor...",
+    supabase: "Hata: Supabase henüz ayarlanmadı.",
+    failed: "Giriş başarısız.",
+    processed: "Giriş işlendi.",
+    unknown: "Bilinmiyor",
+  },
+};
+
+function isAdminUser(user) {
+  const username = String(user?.user_metadata?.sign_username || "")
+    .trim()
+    .toLowerCase();
+  const email = String(user?.email || "").trim().toLowerCase();
+
+  return username === "memed" || email === "memed@sign.local";
+}
 
 export default function LoginPage() {
-  const [displayName, setDisplayName] = useState("");
+  const { language } = useAppLanguage();
+  const tx = LOGIN_TEXT[language] || LOGIN_TEXT.de;
+  const [displayName, setDisplayName] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(REMEMBERED_NAME_KEY) || "";
+  });
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setAppLanguage(getDeviceLanguage());
+
+    if (!supabase) return;
+
+    let cancelled = false;
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+
+        const user = data.session?.user;
+        if (user) {
+          window.location.replace(isAdminUser(user) ? "/admin" : "/gebaerdensprache");
+          return;
+        }
+
+        setMessage("");
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleLogin() {
     setLoading(true);
@@ -15,7 +100,7 @@ export default function LoginPage() {
 
     try {
       if (!supabase) {
-        setMessage("Fehler: Supabase ist noch nicht konfiguriert.");
+        setMessage(tx.supabase);
         setLoading(false);
         return;
       }
@@ -32,7 +117,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage("Fehler: " + (data?.error || "Login fehlgeschlagen."));
+        setMessage("Fehler: " + (data?.error || tx.failed));
       } else if (data?.session) {
         const { error } = await supabase.auth.setSession({
           access_token: data.session.access_token,
@@ -42,16 +127,20 @@ export default function LoginPage() {
         if (error) {
           setMessage("Fehler: " + error.message);
         } else {
+          window.localStorage.setItem(
+            REMEMBERED_NAME_KEY,
+            displayName.trim()
+          );
           window.location.href =
             displayName.trim().toLowerCase() === "memed"
               ? "/admin"
               : "/gebaerdensprache";
         }
       } else {
-        setMessage(data?.message || "Login verarbeitet.");
+        setMessage(data?.message || tx.processed);
       }
     } catch (error) {
-      setMessage("Fehler: " + (error?.message || "Unbekannt"));
+      setMessage("Fehler: " + (error?.message || tx.unknown));
     }
 
     setLoading(false);
@@ -69,16 +158,15 @@ export default function LoginPage() {
         color: "white",
       }}
     >
-      <h1 style={{ marginTop: 0 }}>Login</h1>
+      <h1 style={{ marginTop: 0 }}>{tx.title}</h1>
 
       <p style={{ color: "#b9c1cf", lineHeight: 1.5 }}>
-        Melde dich mit deinem Namen und Passwort an. Neue Benutzer legt der
-        Admin an.
+        {tx.intro}
       </p>
 
       <input
         type="text"
-        placeholder="Name"
+        placeholder={tx.name}
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
         autoComplete="username"
@@ -97,7 +185,7 @@ export default function LoginPage() {
 
       <input
         type="password"
-        placeholder="Passwort"
+        placeholder={tx.password}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         autoComplete="current-password"
@@ -133,7 +221,7 @@ export default function LoginPage() {
           color: "#07100d",
         }}
       >
-        {loading ? "Bitte warten..." : "Einloggen"}
+        {loading ? tx.wait : tx.submit}
       </button>
 
       {message && (

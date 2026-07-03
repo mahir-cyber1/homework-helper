@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import { getDeviceLanguage, setAppLanguage, useAppLanguage } from "../../lib/i18n";
 import styles from "./sign-translate.module.css";
 
 const TRAINING_KEY = "sign-translate-training-v1";
@@ -23,6 +24,105 @@ const starterPhrases = [
   "Ja",
   "Nein",
 ];
+
+const SIGN_TEXT = {
+  de: {
+    prototype: "DGS Prototyp",
+    liveTitle: "Live uebersetzen mit deinen Trainingsdaten.",
+    trainTitle: "Avatar aufnehmen, Text korrigieren, App trainieren.",
+    liveIntro: "Der Live-Modus nutzt deine gespeicherten Korrekturen.",
+    trainIntro: "Der Trainingsmodus speichert Bewegungsdaten, aber kein echtes Video.",
+    live: "Live",
+    train: "Training",
+    readyTitle: "Kamera bereit machen",
+    readyHint: "Haende, Oberkoerper und Gesicht gut sichtbar positionieren.",
+    startCamera: "Kamera starten",
+    liveStart: "Live starten",
+    liveStop: "Live stoppen",
+    recordStart: "Aufnahme starten",
+    recordStop: "Aufnahme stoppen",
+    recordAgain: "Neu aufnehmen",
+    liveText: "Live Text",
+    noLive: "Noch keine Live-Uebersetzung",
+    liveHelp: "Wenn der Live-Text falsch ist, wechsle in Training, nimm die Gebaerde auf und speichere die richtige Bedeutung.",
+    translation: "Uebersetzung",
+    correctedText: "Korrigierter Text",
+    correctionPlaceholder: "Hier steht der erkannte oder korrigierte Text...",
+    saveCorrect: "Als richtig speichern",
+    training: "Training",
+    noTraining: "Noch keine Trainingsdaten. Speichere ein paar korrigierte Aufnahmen.",
+    export: "Export",
+    deleteSelected: "Auswahl loeschen",
+    initialStatus: "Kamera starten, dann eine kurze Gebaerde aufnehmen.",
+    localTraining: "Lokales Training aktiv.",
+    trackingReady: "KI-Tracking bereit: startet nach dem Kamerastart.",
+    privacyAvatar: "Datenschutz: Es wird kein echtes Video gespeichert, nur dieser Avatar und Bewegungsdaten.",
+  },
+  en: {
+    prototype: "Sign prototype",
+    liveTitle: "Translate live with your training data.",
+    trainTitle: "Record an avatar, correct the text, train the app.",
+    liveIntro: "Live mode uses your saved corrections.",
+    trainIntro: "Training saves motion data, but no real video.",
+    live: "Live",
+    train: "Training",
+    readyTitle: "Prepare camera",
+    readyHint: "Keep hands, upper body and face clearly visible.",
+    startCamera: "Start camera",
+    liveStart: "Start live",
+    liveStop: "Stop live",
+    recordStart: "Start recording",
+    recordStop: "Stop recording",
+    recordAgain: "Record again",
+    liveText: "Live text",
+    noLive: "No live translation yet",
+    liveHelp: "If the live text is wrong, switch to Training, record the sign and save the correct meaning.",
+    translation: "Translation",
+    correctedText: "Corrected text",
+    correctionPlaceholder: "Detected or corrected text appears here...",
+    saveCorrect: "Save as correct",
+    training: "Training",
+    noTraining: "No training data yet. Save a few corrected recordings.",
+    export: "Export",
+    deleteSelected: "Delete selected",
+    initialStatus: "Start the camera, then record a short sign.",
+    localTraining: "Local training active.",
+    trackingReady: "AI tracking ready: starts after camera start.",
+    privacyAvatar: "Privacy: no real video is saved, only this avatar and motion data.",
+  },
+  tr: {
+    prototype: "İşaret dili prototipi",
+    liveTitle: "Kendi eğitim verilerinle canlı çevir.",
+    trainTitle: "Avatar kaydet, metni düzelt, uygulamayı eğit.",
+    liveIntro: "Canlı mod kaydettiğin düzeltmeleri kullanır.",
+    trainIntro: "Eğitim modu hareket verilerini kaydeder, gerçek video kaydetmez.",
+    live: "Canlı",
+    train: "Eğitim",
+    readyTitle: "Kamerayı hazırla",
+    readyHint: "Eller, üst beden ve yüz net görünsün.",
+    startCamera: "Kamerayı başlat",
+    liveStart: "Canlı başlat",
+    liveStop: "Canlı durdur",
+    recordStart: "Kaydı başlat",
+    recordStop: "Kaydı durdur",
+    recordAgain: "Yeniden kaydet",
+    liveText: "Canlı metin",
+    noLive: "Henüz canlı çeviri yok",
+    liveHelp: "Canlı metin yanlışsa Eğitime geç, işareti kaydet ve doğru anlamı kaydet.",
+    translation: "Çeviri",
+    correctedText: "Düzeltilmiş metin",
+    correctionPlaceholder: "Algılanan veya düzeltilen metin burada...",
+    saveCorrect: "Doğru olarak kaydet",
+    training: "Eğitim",
+    noTraining: "Henüz eğitim verisi yok. Birkaç düzeltilmiş kayıt kaydet.",
+    export: "Dışa aktar",
+    deleteSelected: "Seçileni sil",
+    initialStatus: "Kamerayı başlat, sonra kısa bir işaret kaydet.",
+    localTraining: "Yerel eğitim aktif.",
+    trackingReady: "KI takibi hazır: kamera başlayınca çalışır.",
+    privacyAvatar: "Gizlilik: gerçek video kaydedilmez, sadece bu avatar ve hareket verileri kaydedilir.",
+  },
+};
 
 function createId() {
   return window.crypto?.randomUUID?.() || String(Date.now());
@@ -267,7 +367,12 @@ function buildAvatar(features) {
   };
 }
 
-function AvatarPreview({ features, label = "Gespeicherter Bewegungs-Avatar", compact = false }) {
+function AvatarPreview({
+  features,
+  label = "Gespeicherter Bewegungs-Avatar",
+  compact = false,
+  caption = SIGN_TEXT.de.privacyAvatar,
+}) {
   const avatar = buildAvatar(features);
 
   return (
@@ -295,7 +400,7 @@ function AvatarPreview({ features, label = "Gespeicherter Bewegungs-Avatar", com
       </div>
       {!compact && (
         <span className={styles.avatarCaption}>
-          Datenschutz: Es wird kein echtes Video gespeichert, nur dieser Avatar und Bewegungsdaten.
+          {caption}
         </span>
       )}
     </div>
@@ -313,6 +418,8 @@ export default function SignTranslatePage() {
   const samplesRef = useRef([]);
   const startedAtRef = useRef(0);
   const router = useRouter();
+  const { language } = useAppLanguage();
+  const tx = SIGN_TEXT[language] || SIGN_TEXT.de;
 
   const [cameraState, setCameraState] = useState("idle");
   const [mode, setMode] = useState(() => {
@@ -325,15 +432,13 @@ export default function SignTranslatePage() {
   const [trainingEntries, setTrainingEntries] = useState(() => loadTrainingEntries());
   const [currentResult, setCurrentResult] = useState(null);
   const [liveResult, setLiveResult] = useState({
-    text: "Noch keine Live-Uebersetzung",
+    text: tx.noLive,
     confidence: 0,
   });
   const [correctedText, setCorrectedText] = useState("");
-  const [status, setStatus] = useState("Kamera starten, dann eine kurze Gebaerde aufnehmen.");
-  const [cloudStatus, setCloudStatus] = useState("Lokales Training aktiv.");
-  const [landmarkStatus, setLandmarkStatus] = useState(
-    "KI-Tracking bereit: startet nach dem Kamerastart."
-  );
+  const [status, setStatus] = useState(tx.initialStatus);
+  const [cloudStatus, setCloudStatus] = useState(tx.localTraining);
+  const [landmarkStatus, setLandmarkStatus] = useState(tx.trackingReady);
   const [selectedTrainingIds, setSelectedTrainingIds] = useState([]);
 
   const learnedPhrases = useMemo(() => {
@@ -343,6 +448,32 @@ export default function SignTranslatePage() {
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [trainingEntries]);
+
+  useEffect(() => {
+    setAppLanguage(getDeviceLanguage());
+  }, []);
+
+  useEffect(() => {
+    const initialStatuses = Object.values(SIGN_TEXT).map((item) => item.initialStatus);
+    const localStatuses = Object.values(SIGN_TEXT).map((item) => item.localTraining);
+    const trackingStatuses = Object.values(SIGN_TEXT).map((item) => item.trackingReady);
+    const noLiveTexts = Object.values(SIGN_TEXT).map((item) => item.noLive);
+
+    setStatus((current) =>
+      initialStatuses.includes(current) ? tx.initialStatus : current
+    );
+    setCloudStatus((current) =>
+      localStatuses.includes(current) ? tx.localTraining : current
+    );
+    setLandmarkStatus((current) =>
+      trackingStatuses.includes(current) ? tx.trackingReady : current
+    );
+    setLiveResult((current) =>
+      noLiveTexts.includes(current.text)
+        ? { ...current, text: tx.noLive }
+        : current
+    );
+  }, [tx.initialStatus, tx.localTraining, tx.noLive, tx.trackingReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -721,16 +852,16 @@ export default function SignTranslatePage() {
   return (
     <main className={styles.page}>
       <section className={styles.header}>
-        <span>DGS Prototyp</span>
+        <span>{tx.prototype}</span>
         <h1>
           {mode === "live"
-            ? "Live uebersetzen mit deinen Trainingsdaten."
-            : "Video aufnehmen, Text korrigieren, App trainieren."}
+            ? tx.liveTitle
+            : tx.trainTitle}
         </h1>
         <p>
           {mode === "live"
-            ? "Der Live-Modus nutzt die gespeicherten Korrekturen als einfache Wiedererkennung."
-            : "Der Trainingsmodus sammelt korrigierte Beispiele lokal und in Supabase."}
+            ? tx.liveIntro
+            : tx.trainIntro}
         </p>
       </section>
 
@@ -740,14 +871,14 @@ export default function SignTranslatePage() {
           className={mode === "live" ? styles.activeMode : ""}
           onClick={() => switchMode("live")}
         >
-          Live
+          {tx.live}
         </button>
         <button
           type="button"
           className={mode === "train" ? styles.activeMode : ""}
           onClick={() => switchMode("train")}
         >
-          Training
+          {tx.train}
         </button>
       </div>
 
@@ -756,8 +887,8 @@ export default function SignTranslatePage() {
           <video ref={videoRef} autoPlay muted playsInline />
           {cameraState !== "ready" && (
             <div className={styles.videoOverlay}>
-              <strong>Kamera bereit machen</strong>
-              <span>Haende, Oberkoerper und Gesicht gut sichtbar positionieren.</span>
+              <strong>{tx.readyTitle}</strong>
+              <span>{tx.readyHint}</span>
             </div>
           )}
           {isRecording && <div className={styles.recordingDot}>REC</div>}
@@ -766,7 +897,7 @@ export default function SignTranslatePage() {
         <div className={styles.controls}>
           {cameraState !== "ready" ? (
             <button type="button" onClick={startCamera} className={styles.primaryButton}>
-              Kamera starten
+              {tx.startCamera}
             </button>
           ) : mode === "live" ? (
             <button
@@ -774,7 +905,7 @@ export default function SignTranslatePage() {
               onClick={isLive ? stopLiveMode : startLiveMode}
               className={isLive ? styles.stopButton : styles.primaryButton}
             >
-              {isLive ? "Live stoppen" : "Live starten"}
+              {isLive ? tx.liveStop : tx.liveStart}
             </button>
           ) : (
             <>
@@ -783,7 +914,7 @@ export default function SignTranslatePage() {
                 onClick={isRecording ? stopRecording : startRecording}
                 className={isRecording ? styles.stopButton : styles.primaryButton}
               >
-                {isRecording ? "Aufnahme stoppen" : "Aufnahme starten"}
+                {isRecording ? tx.recordStop : tx.recordStart}
               </button>
               <button
                 type="button"
@@ -791,7 +922,7 @@ export default function SignTranslatePage() {
                 disabled={isRecording}
                 className={styles.secondaryButton}
               >
-                Neu aufnehmen
+                {tx.recordAgain}
               </button>
             </>
           )}
@@ -805,35 +936,34 @@ export default function SignTranslatePage() {
       {mode === "live" ? (
         <section className={styles.livePanel}>
           <div className={styles.panelHeader}>
-            <span>Live Text</span>
+            <span>{tx.liveText}</span>
             <strong>{liveResult.confidence || 0}%</strong>
           </div>
           <p className={styles.liveText}>{liveResult.text}</p>
           <p className={styles.emptyState}>
-            Wenn der Live-Text falsch ist, wechsle in Training, nimm die
-            Gebaerde auf und speichere die richtige Bedeutung.
+            {tx.liveHelp}
           </p>
         </section>
       ) : (
       <section className={styles.resultGrid}>
         <div className={styles.resultPanel}>
           <div className={styles.panelHeader}>
-            <span>Uebersetzung</span>
+            <span>{tx.translation}</span>
             {currentResult && <strong>{currentResult.confidence}%</strong>}
           </div>
 
           {currentResult?.features?.length > 0 && (
-            <AvatarPreview features={currentResult.features} />
+            <AvatarPreview features={currentResult.features} caption={tx.privacyAvatar} />
           )}
 
           <label className={styles.textLabel} htmlFor="correction">
-            Korrigierter Text
+            {tx.correctedText}
           </label>
           <textarea
             id="correction"
             value={correctedText}
             onChange={(event) => setCorrectedText(event.target.value)}
-            placeholder="Hier steht der erkannte oder korrigierte Text..."
+            placeholder={tx.correctionPlaceholder}
             rows={5}
           />
 
@@ -843,13 +973,13 @@ export default function SignTranslatePage() {
             disabled={!currentResult}
             className={styles.saveButton}
           >
-            Als richtig speichern
+            {tx.saveCorrect}
           </button>
         </div>
 
         <div className={styles.trainingPanel}>
           <div className={styles.panelHeader}>
-            <span>Training</span>
+            <span>{tx.training}</span>
             <strong>{trainingEntries.length}</strong>
           </div>
 
@@ -893,20 +1023,20 @@ export default function SignTranslatePage() {
             </>
           ) : (
             <p className={styles.emptyState}>
-              Noch keine Trainingsdaten. Speichere ein paar korrigierte Aufnahmen.
+              {tx.noTraining}
             </p>
           )}
 
           <div className={styles.trainingActions}>
             <button type="button" onClick={exportTraining} disabled={!trainingEntries.length}>
-              Export
+              {tx.export}
             </button>
             <button
               type="button"
               onClick={deleteSelectedTraining}
               disabled={!selectedTrainingIds.length}
             >
-              Auswahl loeschen
+              {tx.deleteSelected}
             </button>
           </div>
         </div>
