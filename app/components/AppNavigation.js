@@ -109,6 +109,9 @@ export default function AppNavigation() {
   if (!VISIBLE_PATHS.has(pathname)) return null;
 
   const signUsername = String(user?.user_metadata?.sign_username || "");
+  const isSignUser =
+    Boolean(signUsername) ||
+    String(user?.email || "").trim().toLowerCase().endsWith("@sign.local");
   const isAdmin =
     String(user?.user_metadata?.role || "").toLowerCase() === "admin" ||
     signUsername.trim().toLowerCase() === "memed" ||
@@ -116,11 +119,15 @@ export default function AppNavigation() {
   const profileAvatar = getProfileAvatar(isAdmin ? "spark" : avatarId);
   const profileFrame = getProfileFrame(frameId);
   const profileTheme = getProfileTheme(themeId);
-  const isSignPath =
+  const isSignRoute =
     pathname === "/sign-translate" ||
     pathname === "/gebärdensprache" ||
     pathname === "/gebaerdensprache";
-  const navItems = isSignPath
+  const isSignContext =
+    isSignRoute ||
+    (isSignUser &&
+      (pathname === "/profile" || pathname === "/admin" || pathname === "/login"));
+  const navItems = isSignContext
     ? SIGN_NAV_ITEMS.map((item) =>
         item.mode === "login" && user
           ? {
@@ -130,7 +137,7 @@ export default function AppNavigation() {
                 ? { de: "Admin", en: "Admin", tr: "Admin" }
                 : { de: "Profil", en: "Profile", tr: "Profil" },
             }
-          : item
+        : item
       )
     : NAV_ITEMS;
 
@@ -147,9 +154,11 @@ export default function AppNavigation() {
         const href =
           item.href === "/profile" && isAdmin ? "/admin" : item.href;
         const isActive =
-          (isSignPath && item.mode && item.mode === currentMode) ||
+          (isSignRoute && item.mode && item.mode === currentMode) ||
           (item.mode === "login" &&
-            (pathname === "/login" || pathname === "/admin")) ||
+            (pathname === "/login" ||
+              pathname === "/profile" ||
+              pathname === "/admin")) ||
           pathname === href ||
           (item.href === "/sign-translate" &&
             (pathname === "/gebärdensprache" ||
