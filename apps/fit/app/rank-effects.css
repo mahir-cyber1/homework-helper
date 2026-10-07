@@ -1,0 +1,46 @@
+.rank-upgrade .look-frame:not(.theme-default){isolation:isolate;padding:6px;box-shadow:0 0 0 2px #fff,0 0 0 4px color-mix(in srgb,var(--look-color) 45%,white),0 8px 24px color-mix(in srgb,var(--look-color) 25%,transparent)}
+.rank-upgrade .look-frame:not(.theme-default)::before{content:"";position:absolute;inset:-7px;border:1px solid color-mix(in srgb,var(--look-color) 40%,white);border-radius:inherit;pointer-events:none}
+.rank-upgrade .look-frame.theme-simple{background:conic-gradient(from 20deg,var(--look-color),#eff9ff 18%,var(--look-color) 30%,var(--look-color) 55%,#fff 65%,var(--look-color) 82%)}
+.rank-upgrade .avatar-inner{border:2px solid #ffffffd9;box-shadow:inset 0 0 0 1px #dce5ee}
+.rank-upgrade .look-name.theme-simple{font-weight:850;letter-spacing:.7px;text-shadow:0 2px 0 #fff,0 4px 12px color-mix(in srgb,var(--look-color) 25%,transparent)}
+.rank-upgrade .look-frame.theme-aurora{background:conic-gradient(from 45deg,#34e0d6,#568af7,#c1f7f1,#9476e8,#34e0d6);animation:aurora-glow 6s ease-in-out infinite}
+.rank-upgrade .aurora-emblem{background:linear-gradient(140deg,#31c8c3,#6474d8);color:#fff;border-color:#fff}
+.rank-upgrade .look-name.theme-aurora{color:#239ea3}
+.rank-upgrade .look-name.theme-aurora .rank-display-name{background:linear-gradient(110deg,#0a797c,#5361c9,#1d9a9a,#5361c9,#0a797c);background-size:200% 100%;background-clip:text;-webkit-background-clip:text;color:transparent;font-weight:900;animation:rank-shimmer 7s ease-in-out infinite;text-shadow:none}
+.rank-upgrade .look-frame.theme-dragon{background:conic-gradient(#ffc961,#8c3813,#f6ad35,#30221b,#ed9433,#ffc961);box-shadow:0 0 0 2px #fff3d1,0 0 0 5px #754322,0 8px 25px #dc8c3c40}
+.rank-upgrade .look-frame.theme-dragon::before{border:2px dashed #e7ab4d;inset:-9px}
+.rank-upgrade .look-frame.theme-dragon .frame-emblem{background:linear-gradient(140deg,#73471d,#211c18);border-color:#ffd389;box-shadow:0 0 12px #ecad4f66}
+.rank-upgrade .look-name.theme-dragon{font-family:Impact,'Arial Black',ui-sans-serif,sans-serif;letter-spacing:1px;font-weight:900;font-style:italic;color:#a76513;border-bottom:3px double #d49c40;text-shadow:0 1px 0 #ffdc87,1px 2px 0 #5e3a1a33}
+.rank-upgrade .look-frame.theme-crystal{border-radius:31%;background:conic-gradient(from 20deg,#eee9ff,#9667e0,#bceaff,#613c9e,#f8f6ff,#9783d8,#eee9ff);box-shadow:0 0 0 2px #fff,0 0 0 5px #8c78b8,0 8px 25px #9e84e655}
+.rank-upgrade .look-frame.theme-crystal::before{border:2px solid #cec1f5;inset:-9px;box-shadow:0 0 12px #c7b4ff55}
+.rank-upgrade .look-frame.theme-crystal .frame-emblem{background:linear-gradient(130deg,#fcfaff,#cdbbeb);border-color:#fff}
+.rank-upgrade .look-name.theme-crystal{color:#7956ae;letter-spacing:1px;text-shadow:0 3px 12px #cab9e355}
+.rank-upgrade .look-name.theme-crystal .rank-display-name{background:linear-gradient(110deg,#6740a0,#468eac,#7c4db9,#6740a0);background-size:220% 100%;background-clip:text;-webkit-background-clip:text;color:transparent;font-weight:900;animation:rank-shimmer 8s ease-in-out infinite}
+.rank-upgrade .look-frame.theme-champion{margin-top:42px;margin-bottom:23px;padding:8px;background:conic-gradient(from 25deg,#fff,#8de4e8,#fff6d4,#43b9ca,#edfdfd,#fff,#96dfe3,#fff7dc,#fff);box-shadow:0 0 0 2px #14333e,0 0 0 5px #eafcfd,0 0 0 7px #70cad4,0 0 30px #4ad1dc70;animation:champion-halo 5s ease-in-out infinite}
+.rank-upgrade .look-frame.theme-champion::before{inset:-11px;border:1px solid #a7edf2;box-shadow:0 0 15px #4cd6e933}
+.rank-upgrade .champion-title{position:absolute;top:-43px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:4px;width:max-content;max-width:170px;white-space:nowrap;color:#ffd45d;z-index:3;animation:champion-title-float 5s ease-in-out infinite}
+.rank-upgrade .champion-title svg{flex-shrink:0;fill:#ffd45d;stroke:#715515;filter:drop-shadow(0 0 5px #fff3ad);width:18px}
+.rank-upgrade .champion-title strong{font-family:Impact,'Arial Black',ui-sans-serif,sans-serif;font-size:22px;font-weight:950;font-style:italic;letter-spacing:1px;line-height:1.3;background:linear-gradient(105deg,#fff,#a7f0f4,#fffce3,#ffe082,#fff,#a7f0f4);background-size:250% 100%;background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-stroke:.8px #24434a;filter:drop-shadow(0 1px 0 #1c3e48) drop-shadow(0 0 6px #77e0ed);animation:rank-shimmer 6s ease-in-out infinite}
+.rank-upgrade .champion-crown{top:auto;bottom:-9px;right:calc(50% - 17px);width:34px;height:29px;background:linear-gradient(140deg,#fff6c7,#ffcf43,#e9ac1e);color:#745417;border:2px solid #fff9df;box-shadow:0 0 0 1px #8e7029,0 0 12px #ffeaa688}
+.rank-upgrade .look-frame.theme-champion .avatar-inner{border:2px solid #e7fcff;background:linear-gradient(130deg,#fbfeff,#eef9fa);color:#62b0bd}
+.rank-upgrade .look-name.theme-champion{color:#cca331;border-bottom:2px solid #d6b654;padding:6px 8px 9px;font-family:Impact,'Arial Black',ui-sans-serif,sans-serif;font-weight:900;letter-spacing:1px;font-style:italic;text-shadow:none;filter:drop-shadow(0 0 5px #69d4e533)}
+.rank-upgrade .look-name.theme-champion .rank-display-name{font-weight:950;letter-spacing:.8px;background:linear-gradient(110deg,#168799,#f5ffff,#53bcca,#fdf0b5,#1b92a9,#d6fcff,#168799);background-size:260% 100%;background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-stroke:.5px #255969;animation:rank-shimmer 5s ease-in-out infinite}
+.rank-upgrade .look-name.theme-champion .name-crown{fill:#ffd665;stroke:#8a641b;flex-shrink:0;filter:drop-shadow(0 0 5px #fff0ab)}
+.rank-upgrade .look-bubbles i,.rank-upgrade .name-bubbles i{background:radial-gradient(circle at 28% 25%,#fff 0 16%,#d8fcffbb 32%,#73d2e6aa 65%,#e6f6dacc);border-color:#f4ffff;box-shadow:inset -2px -2px 4px #60b9c733,0 0 8px #7ee8f255;animation:rank-bubble-float 6s ease-in-out infinite}
+.rank-upgrade .look-bubbles i:nth-child(2),.rank-upgrade .name-bubbles i:nth-child(2){animation-delay:-2s}
+.rank-upgrade .look-bubbles i:nth-child(3),.rank-upgrade .name-bubbles i:nth-child(3){animation-delay:-4s}
+.rank-upgrade .look-bubbles i:nth-child(4){animation-delay:-1s}
+.admin-reward-card:has(.theme-champion){background:radial-gradient(ellipse at 50% 30%,#c2f3f64d,transparent 65%),linear-gradient(150deg,#fff,#f3fbfc);border-color:#99d3dc}
+.admin-reward-card:has(.theme-dragon){background:linear-gradient(155deg,#fff,#fcf6e9);border-color:#e5c99c}
+.admin-reward-card:has(.theme-crystal){background:linear-gradient(155deg,#fff,#f5f0fc);border-color:#d2bfec}
+.admin-reward-card .rank-upgrade .champion-title strong{font-size:17px;letter-spacing:.5px}
+.admin-reward-card .rank-upgrade .champion-title{max-width:130px;top:-38px;gap:3px}
+.admin-reward-card .rank-upgrade .champion-title svg{width:14px;height:14px}
+.admin-reward-card .rank-upgrade .look-frame.theme-champion{margin-top:40px;margin-bottom:22px}
+.admin-reward-card .rank-upgrade .champion-crown{right:calc(50% - 17px)}
+@keyframes rank-shimmer{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes champion-title-float{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-3px)}}
+@keyframes rank-bubble-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes champion-halo{0%,100%{box-shadow:0 0 0 2px #14333e,0 0 0 5px #eafcfd,0 0 0 7px #70cad4,0 0 22px #4ad1dc55}50%{box-shadow:0 0 0 2px #14333e,0 0 0 5px #fffce9,0 0 0 7px #92dce4,0 0 34px #4ad1dc88}}
+@keyframes aurora-glow{0%,100%{filter:drop-shadow(0 0 3px #54c9d22b)}50%{filter:drop-shadow(0 0 7px #54c9d25a)}}
+@media(prefers-reduced-motion:reduce){.rank-upgrade *{animation:none!important;transition:none!important}}

@@ -1,0 +1,15 @@
+export type PlanEvent={id:string;title:string;date:string;time:string;duration:number;category:string;startsAt:string;completed:boolean};
+export function berlinDate(now=new Date()){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);}
+export function calendarWindow(now=new Date()){const today=berlinDate(now),year=Number(today.slice(0,4));return {today,year,min:`${year}-01-01`,max:`${Math.min(9999,year+4)}-12-31`};}
+function berlinParts(date:Date){const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(date);const get=(name:string)=>Number(parts.find(p=>p.type===name)?.value);return Date.UTC(get('year'),get('month')-1,get('day'),get('hour'),get('minute'));}
+export function berlinInstant(date:string,time:string){const target=Date.parse(`${date}T${time}:00Z`);let stamp=target;for(let i=0;i<4;i++){const delta=target-berlinParts(new Date(stamp));if(!delta)return new Date(stamp).toISOString();stamp+=delta;}throw new Error('Diese Uhrzeit gibt es wegen der Zeitumstellung nicht. Bitte wähle eine andere.');}
+export function validPlan(value:any,now=new Date()){
+ const {min,max}=calendarWindow(now);const title=typeof value.title==='string'?value.title.trim():'';
+ if(!title||title.length>80||/[\x00-\x1f]/.test(title))throw new Error('Bitte gib einen Titel mit höchstens 80 Zeichen ein.');
+ if(typeof value.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.date)||!Number.isFinite(Date.parse(value.date))||new Date(value.date).toISOString().slice(0,10)!==value.date||value.date<min||value.date>max)throw new Error('Bitte wähle einen Tag im verfügbaren Kalender.');
+ if(typeof value.time!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.time))throw new Error('Bitte gib eine gültige Uhrzeit ein.');
+ if(!Number.isInteger(value.duration)||value.duration<5||value.duration>180)throw new Error('Die Dauer muss zwischen 5 und 180 Minuten liegen.');
+ if(typeof value.category!=='string'||value.category.length>60)throw new Error('Bitte wähle einen Trainingsbereich.');
+ return {title,date:value.date,time:value.time,duration:value.duration,category:value.category,startsAt:berlinInstant(value.date,value.time)};
+}
+export function calendarIcs(event:PlanEvent){const escape=(s:string)=>s.replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');const stamp=(s:string)=>s.replace(/[-:]/g,'').replace(/\.\d{3}/,'');return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Fit//Trainingsplan//DE','BEGIN:VEVENT',`UID:${event.id}@fit`, `DTSTAMP:${stamp(new Date().toISOString())}`,`DTSTART:${stamp(event.startsAt)}`,`DTEND:${stamp(new Date(Date.parse(event.startsAt)+event.duration*60000).toISOString())}`,`SUMMARY:${escape(event.title)}`,`DESCRIPTION:${escape('Beginne mit deinem Training. '+event.category)}`,'BEGIN:VALARM','TRIGGER:PT0M','ACTION:DISPLAY','DESCRIPTION:Beginne mit dem Training','END:VALARM','END:VEVENT','END:VCALENDAR',''].join('\r\n');}

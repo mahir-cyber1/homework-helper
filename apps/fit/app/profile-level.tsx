@@ -1,0 +1,3 @@
+'use client';
+import {useEffect,useState} from 'react';import {api} from '@/lib/client-photo';
+export default function ProfileLevel(){const [level,setLevel]=useState<number|null>(null);useEffect(()=>{const refresh=()=>{api<{level:number}>('/api/progress').then(d=>setLevel(d.level)).catch(()=>{});};refresh();window.addEventListener('reward-updated',refresh);return()=>window.removeEventListener('reward-updated',refresh);},[]);return <div className="profile-level"><span>DEIN APP-LEVEL</span><strong>{level===null?'…':level.toLocaleString('de-DE')}</strong><p>Wochenchecks zählen. Dein Level bleibt unabhängig von deinen Cosmetics.</p></div>;}
